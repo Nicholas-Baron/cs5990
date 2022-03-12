@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from operator import itemgetter
 import networkx as nx
 from sys import exit
-import random as rand
-from random import random
+from random import choice, random
+from time import time_ns
 
 # Number of nodes |V|, mean degree c, parameter β
 # Required:
@@ -32,6 +32,15 @@ if beta < 0 or beta > 1:
     print("beta must be between 0 and 1 (inclusive on both ends)")
     exit(2)
 
+start = time_ns()
+
+
+def print_timing(section: str):
+    global start
+    print(f"{section:25}", (time_ns() - start) / 1000000, "ms")
+    start = time_ns()
+
+
 #  G = A regular ring lattice with |V| nodes and degree c
 # Generates a ring with `num_nodes` nodes
 g = nx.cycle_graph(num_nodes)
@@ -49,6 +58,8 @@ if mean_degree > 2:
             ]
         )
 
+print_timing("Ring lattice")
+
 result = nx.Graph()
 
 #  for node vi (starting from v1), and all edges e(vi , vj), i < j do
@@ -59,7 +70,7 @@ for node in g.nodes():
             continue
 
         # vk = Select a node from V uniformly at random.
-        rand_node = rand.choice(list(g.nodes()))
+        rand_node = choice(list(g.nodes()))
 
         # if rewiring e(vi , vj) to e(vi , vk) does not create loops in the graph or multiple edges between vi and vk then
         if rand_node == node or rand_node in g.neighbors(node):
@@ -72,6 +83,7 @@ for node in g.nodes():
         else:
             result.add_edge(node, rand_node)
 
+print_timing("Randomize edges")
 #  Return G(V, E)
 
 # Avg Path length
@@ -80,6 +92,11 @@ print(nx.algorithms.shortest_paths.average_shortest_path_length(result))
 # Clustering coeff
 print(nx.algorithms.cluster.average_clustering(result))
 
+print_timing("Metrics")
+ 
+# TODO: Make flag?
 # Visualize the result
-nx.draw(result)
-plt.savefig("watts-strogatz.png")
+# nx.draw(result)
+# plt.savefig("watts-strogatz.png")
+
+print_timing("Visualization")
