@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from operator import itemgetter
 import networkx as nx
 from sys import exit
+import random as rand
+from random import random
 
 # Number of nodes |V|, mean degree c, parameter β
 # Required:
@@ -47,14 +49,31 @@ if mean_degree > 2:
             ]
         )
 
+result = nx.Graph()
+
 #  for node vi (starting from v1), and all edges e(vi , vj), i < j do
-#      vk = Select a node from V uniformly at random.
-#      if rewiring e(vi , vj) to e(vi , vk) does not create loops in the graph or multiple edges between vi and vk then
-#          rewire e(vi , vj) with probability β: E = E−{e(vi , vj)}, E = E∪{e(vi , vk)};
-#      end if
-#  end for
+for node in g.nodes():
+    for neighbor in g.neighbors(node):
+        if neighbor <= node:
+            result.add_edge(node, neighbor)
+            continue
+
+        # vk = Select a node from V uniformly at random.
+        rand_node = rand.choice(list(g.nodes()))
+
+        # if rewiring e(vi , vj) to e(vi , vk) does not create loops in the graph or multiple edges between vi and vk then
+        if rand_node == node or rand_node in g.neighbors(node):
+            result.add_edge(node, neighbor)
+            continue
+
+        # rewire e(vi , vj) with probability β: E = E−{e(vi , vj)}, E = E∪{e(vi , vk)};
+        if random() > beta:
+            result.add_edge(node, neighbor)
+        else:
+            result.add_edge(node, rand_node)
+
 #  Return G(V, E)
 
 # Visualize the result
-nx.draw(g)
+nx.draw(result)
 plt.savefig("watts-strogatz.png")
