@@ -74,6 +74,12 @@ for node in g.nodes():
 
 #  Return G(V, E)
 
+# Avg Path length
+print(nx.algorithms.shortest_paths.average_shortest_path_length(result))
+
+# Clustering coeff
+print(nx.algorithms.cluster.average_clustering(result))
+
 # Visualize the result
 nx.draw(result)
 plt.savefig("watts-strogatz.png")
