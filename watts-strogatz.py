@@ -5,7 +5,10 @@ from operator import itemgetter
 import networkx as nx
 from sys import exit
 from random import choice, random
-from time import time_ns
+from time import time_ns, sleep
+
+import multiprocessing as mp
+from multiprocessing import Process
 
 # Number of nodes |V|, mean degree c, parameter β
 # Required:
@@ -86,14 +89,81 @@ for node in g.nodes():
 print_timing("Randomize edges")
 #  Return G(V, E)
 
+
+def compute_metrics(G, q: "mp.Queue[tuple[int, float]]", endpoints: tuple[int, int]):
+    shortest_path = 0
+    clustering = 0
+    for node in list(G)[endpoints[0] : endpoints[1]]:
+        # for the shortest paths, we only need to add the forward facing paths
+        for dest in G.nodes():
+            if dest <= node:
+                continue
+
+            shortest_path += len(nx.shortest_path(G, node, dest))
+
+    q.put((shortest_path, clustering))
+
+
+print("CPUs found", mp.cpu_count())
+
+items_per_process = result.number_of_nodes() // mp.cpu_count()
+
+print("Items per process", items_per_process)
+
+results_queue: "mp.Queue[tuple[int,float]]" = mp.Queue()
+children = [
+    Process(
+        target=compute_metrics,
+        args=(
+            result,
+            results_queue,
+            (start_point, start_point + items_per_process - 1),
+        ),
+    )
+    for start_point in range(0, result.size(), items_per_process)
+]
+
+for child in children:
+    child.start()
+
+print(f"Spawned {len(children)} subprocesses")
+
+# compute the remaining tail of nodes
+compute_metrics(
+    result, results_queue, (len(children) * items_per_process, result.size())
+)
+
+shortest_path = 0
+clustering = 0.0
+
+while len(children) != 0:
+    # wait until at least 1 process is done
+    while all(proc.is_alive() for proc in children):
+        sleep(5)
+
+    # take from the queue
+    while not results_queue.empty():
+        shortest_path_temp, clustering_temp = results_queue.get()
+        shortest_path += shortest_path_temp
+        clustering += clustering_temp
+
+    # remove done children
+    children = [child for child in children if child.is_alive()]
+
+    print(f"{len(children)} children remaining")
+
+print("Average Shortest Path Length", shortest_path / result.size())
+
+print("Average Clustering", shortest_path / result.size())
+
 # Avg Path length
-print(nx.algorithms.shortest_paths.average_shortest_path_length(result))
+# print(nx.algorithms.shortest_paths.average_shortest_path_length(result))
 
 # Clustering coeff
-print(nx.algorithms.cluster.average_clustering(result))
+# print(nx.algorithms.cluster.average_clustering(result))
 
 print_timing("Metrics")
- 
+
 # TODO: Make flag?
 # Visualize the result
 # nx.draw(result)
