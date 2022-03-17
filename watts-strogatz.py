@@ -156,7 +156,7 @@ while len(children) != 0:
 
 print("Average Shortest Path Length", shortest_path / result.size())
 
-print("Average Clustering", shortest_path / result.size())
+print("Average Clustering", clustering / result.size())
 
 # Avg Path length
 # print(nx.algorithms.shortest_paths.average_shortest_path_length(result))
