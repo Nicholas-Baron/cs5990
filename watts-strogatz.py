@@ -92,12 +92,18 @@ print_timing("Randomize edges")
 #  Return G(V, E)
 
 
-def compute_metrics(G, q: "mp.Queue[tuple[int, float]]", endpoints: tuple[int, int]):
+def compute_metrics(
+    G,
+    q: "mp.Queue[tuple[int, float]]",
+    x_endpoints: tuple[int, int],
+    y_endpoints: tuple[int, int],
+):
     shortest_path = 0
     clustering = 0
-    for node in list(G)[endpoints[0] : endpoints[1]]:
+    nodes = list(G)
+    for node in nodes[x_endpoints[0] : x_endpoints[1]]:
         # for the shortest paths, we only need to add the forward facing paths
-        for dest in G.nodes():
+        for dest in nodes[y_endpoints[0] : y_endpoints[1]]:
             if dest <= node:
                 continue
 
@@ -106,23 +112,29 @@ def compute_metrics(G, q: "mp.Queue[tuple[int, float]]", endpoints: tuple[int, i
     q.put((shortest_path, clustering))
 
 
-print("CPUs found", mp.cpu_count())
+process_count = mp.cpu_count() // 2
 
-items_per_process = result.number_of_nodes() // mp.cpu_count()
+print("CPUs found", process_count)
+
+items_per_process = result.number_of_nodes() // process_count
 
 print("Items per process", items_per_process)
 
 results_queue: "mp.Queue[tuple[int,float]]" = mp.Queue()
+# Children take only a specific square
 children = [
     Process(
         target=compute_metrics,
         args=(
             result,
             results_queue,
-            (start_point, start_point + items_per_process - 1),
+            (x_start, x_start + items_per_process - 1),
+            (y_start, y_start + items_per_process - 1),
         ),
     )
-    for start_point in range(0, result.size(), items_per_process)
+    for x_start in range(0, result.size(), items_per_process)
+    for y_start in range(0, result.size(), items_per_process)
+    if x_start <= y_start
 ]
 
 for child in children:
@@ -130,10 +142,6 @@ for child in children:
 
 print(f"Spawned {len(children)} subprocesses")
 
-# compute the remaining tail of nodes
-compute_metrics(
-    result, results_queue, (len(children) * items_per_process, result.size())
-)
 
 shortest_path = 0
 clustering = 0.0
