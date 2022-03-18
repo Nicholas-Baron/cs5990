@@ -135,8 +135,8 @@ children = [
             (y_start, y_start + items_per_process - 1),
         ),
     )
-    for x_start in range(0, result.size(), items_per_process)
-    for y_start in range(0, result.size(), items_per_process)
+    for x_start in range(0, result.number_of_nodes(), items_per_process)
+    for y_start in range(0, result.number_of_nodes(), items_per_process)
     if x_start <= y_start
 ]
 
