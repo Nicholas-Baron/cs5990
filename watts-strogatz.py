@@ -75,7 +75,7 @@ for node in g.nodes():
             continue
 
         # vk = Select a node from V uniformly at random.
-        rand_node = choice(list(g.nodes()))
+        rand_node = choice(list(g))
 
         # if rewiring e(vi , vj) to e(vi , vk) does not create loops in the graph or multiple edges between vi and vk then
         if rand_node == node or rand_node in g.neighbors(node):
