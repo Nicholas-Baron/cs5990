@@ -103,11 +103,14 @@ def compute_metrics(
     nodes = list(G)
     for node in nodes[x_endpoints[0] : x_endpoints[1]]:
         # for the shortest paths, we only need to add the forward facing paths
-        for dest in nodes[y_endpoints[0] : y_endpoints[1]]:
-            if dest <= node:
-                continue
+        if node % 1000:
+            print("Processing", node)
 
-            shortest_path += len(nx.shortest_path(G, node, dest))
+        shortest_path += sum(
+            nx.shortest_path_length(G, node, dest)
+            for dest in nodes[y_endpoints[0] : y_endpoints[1]]
+            if dest > node
+        )
 
     q.put((shortest_path, clustering))
 
