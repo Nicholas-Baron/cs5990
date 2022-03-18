@@ -94,28 +94,31 @@ print_timing("Randomize edges")
 
 def compute_metrics(
     G,
-    q: "mp.Queue[tuple[int, float]]",
-    x_endpoints: tuple[int, int],
-    y_endpoints: tuple[int, int],
+    result_q: "mp.Queue[tuple[int, float]]",
+    input_q: "mp.JoinableQueue[tuple[tuple[int,int], tuple[int, int]]]",
 ):
-    shortest_path = 0
-    clustering = 0
     nodes = list(G)
-    for node in nodes[x_endpoints[0] : x_endpoints[1]]:
-        # for the shortest paths, we only need to add the forward facing paths
-        if node % 1000:
-            print("Processing", node)
+    while not input_q.empty():
+        x_endpoints, y_endpoints = input_q.get()
 
-        shortest_path += sum(
-            nx.shortest_path_length(G, node, dest)
-            for dest in nodes[y_endpoints[0] : y_endpoints[1]]
-            if dest > node
-        )
+        shortest_path = 0
+        clustering = 0
+        for node in nodes[x_endpoints[0] : x_endpoints[1]]:
+            # for the shortest paths, we only need to add the forward facing paths
+            if node % 1000 == 0:
+                print(mp.current_process().pid, "is processing", node)
 
-    q.put((shortest_path, clustering))
+            shortest_path += sum(
+                nx.shortest_path_length(G, node, dest)
+                for dest in nodes[y_endpoints[0] : y_endpoints[1]]
+                if dest > node
+            )
+
+        result_q.put((shortest_path, clustering))
+        input_q.task_done()
 
 
-process_count = mp.cpu_count() // 2
+process_count = mp.cpu_count()
 
 print("CPUs found", process_count)
 
@@ -124,46 +127,67 @@ items_per_process = result.number_of_nodes() // process_count
 print("Items per process", items_per_process)
 
 results_queue: "mp.Queue[tuple[int,float]]" = mp.Queue()
-# Children take only a specific square
+inputs_queue: "mp.JoinableQueue[tuple[tuple[int,int],tuple[int,int]]]" = (
+    mp.JoinableQueue()
+)
+
+# Children will do any work available
 children = [
     Process(
         target=compute_metrics,
         args=(
             result,
             results_queue,
-            (x_start, x_start + items_per_process - 1),
-            (y_start, y_start + items_per_process - 1),
+            inputs_queue,
         ),
+    )
+    for _ in range(process_count)
+]
+
+
+input_squares = [
+    (
+        (x_start, x_start + items_per_process - 1),
+        (y_start, y_start + items_per_process - 1),
     )
     for x_start in range(0, result.number_of_nodes(), items_per_process)
     for y_start in range(0, result.number_of_nodes(), items_per_process)
     if x_start <= y_start
 ]
 
+for square in input_squares:
+    inputs_queue.put(square)
+
+
 for child in children:
     child.start()
 
+print(f"Loaded {len(input_squares)} tasks")
 print(f"Spawned {len(children)} subprocesses")
 
+last_print = len(input_squares)
+
+while last_print > 1:
+    if inputs_queue.qsize() != last_print:
+        last_print = inputs_queue.qsize()
+        print(f"{last_print} squares remain")
+
+    sleep(10)
 
 shortest_path = 0
 clustering = 0.0
 
-while len(children) != 0:
-    # wait until at least 1 process is done
-    while all(proc.is_alive() for proc in children):
-        sleep(5)
+# close all children
+inputs_queue.join()
+for child in children:
+    child.join()
 
-    # take from the queue
-    while not results_queue.empty():
-        shortest_path_temp, clustering_temp = results_queue.get()
-        shortest_path += shortest_path_temp
-        clustering += clustering_temp
+# take from the queue
+while not results_queue.empty():
+    shortest_path_temp, clustering_temp = results_queue.get()
+    shortest_path += shortest_path_temp
+    clustering += clustering_temp
 
-    # remove done children
-    children = [child for child in children if child.is_alive()]
-
-    print(f"{len(children)} children remaining")
 
 print("Average Shortest Path Length", shortest_path / result.size())
 
