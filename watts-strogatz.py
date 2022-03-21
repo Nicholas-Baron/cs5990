@@ -42,7 +42,7 @@ start = time_ns()
 
 def print_timing(section: str):
     global start
-    print(f"{section:25}", (time_ns() - start) / 1000000, "ms")
+    print(f"{section:25}", (time_ns() - start) // 1000000, "ms")
     start = time_ns()
 
 
