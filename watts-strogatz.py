@@ -35,12 +35,13 @@ if beta < 0 or beta > 1:
     print("beta must be between 0 and 1 (inclusive on both ends)")
     exit(2)
 
+
 start = time_ns()
 
 
 def print_timing(section: str):
     global start
-    print(f"{section:25}", (time_ns() - start) // 1000000, "ms")
+    print(f"{section:30}", ((time_ns() - start) // 1000000) / 1000, "s")
     start = time_ns()
 
 
@@ -61,7 +62,7 @@ if mean_degree > 2:
             ]
         )
 
-print_timing("Ring lattice")
+print_timing(f"Ring lattice of {num_nodes} nodes and {mean_degree} degree")
 
 result = nx.Graph()
 
@@ -86,7 +87,7 @@ for node in g.nodes():
         else:
             result.add_edge(node, rand_node)
 
-print_timing("Randomize edges")
+print_timing(f"Randomize edges (beta = {beta})")
 #  Return G(V, E)
 
 
@@ -103,9 +104,6 @@ def compute_metrics(
         connected_triples = 0
         triangles = 0
         for node in nodes[x_endpoints[0] : x_endpoints[1]]:
-            # for the shortest paths, we only need to add the forward facing paths
-            if node % 1000 == 0:
-                print(mp.current_process().pid, "is processing", node)
 
             shortest_path += sum(nx.shortest_path_length(G, node).values())
 
