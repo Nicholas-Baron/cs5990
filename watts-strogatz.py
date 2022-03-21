@@ -93,11 +93,11 @@ print_timing("Randomize edges")
 def compute_metrics(
     G,
     result_q: "mp.Queue[tuple[int, int, int]]",
-    input_q: "mp.JoinableQueue[tuple[tuple[int,int], tuple[int, int]]]",
+    input_q: "mp.JoinableQueue[tuple[int,int]]",
 ):
     nodes = list(G)
     while not input_q.empty():
-        x_endpoints, y_endpoints = input_q.get()
+        x_endpoints = input_q.get()
 
         shortest_path = 0
         connected_triples = 0
@@ -107,11 +107,7 @@ def compute_metrics(
             if node % 1000 == 0:
                 print(mp.current_process().pid, "is processing", node)
 
-            shortest_path += sum(
-                nx.shortest_path_length(G, node, dest)
-                for dest in nodes[y_endpoints[0] : y_endpoints[1]]
-                if dest > node
-            )
+            shortest_path += sum(nx.shortest_path_length(G, node).values())
 
             # for clustering, we need 2 more nodes.
             # this is because clustering tries to distinguish
@@ -149,9 +145,7 @@ items_per_process = result.number_of_nodes() // process_count
 print("Items per process", items_per_process)
 
 results_queue: "mp.Queue[tuple[int,int,int]]" = mp.Queue()
-inputs_queue: "mp.JoinableQueue[tuple[tuple[int,int],tuple[int,int]]]" = (
-    mp.JoinableQueue()
-)
+inputs_queue: "mp.JoinableQueue[tuple[int,int]]" = mp.JoinableQueue()
 
 # Children will do any work available
 children = [
@@ -168,13 +162,8 @@ children = [
 
 
 input_squares = [
-    (
-        (x_start, x_start + items_per_process - 1),
-        (y_start, y_start + items_per_process - 1),
-    )
+    (x_start, x_start + items_per_process - 1)
     for x_start in range(0, result.number_of_nodes(), items_per_process)
-    for y_start in range(0, result.number_of_nodes(), items_per_process)
-    if x_start <= y_start
 ]
 
 for square in input_squares:
@@ -193,7 +182,7 @@ while last_print > 1:
     sleep(10)
     if inputs_queue.qsize() != last_print:
         last_print = inputs_queue.qsize()
-        print(f"{last_print} squares remain")
+        print(f"{last_print} tasks remain")
 
 shortest_path = 0
 total_triples = 0
@@ -215,9 +204,14 @@ while not results_queue.empty():
     total_triangles += num_triangles
 
 
-print("Average Shortest Path Length", shortest_path / result.number_of_nodes())
+print(
+    "Average Shortest Path Length",
+    shortest_path / (2 * process_count * result.number_of_nodes()),
+)
 
 print("Average Clustering", (total_triangles * 3) / total_triples)
+
+print_timing("Metrics")
 
 # Avg Path length
 # print(nx.algorithms.shortest_paths.average_shortest_path_length(result))
@@ -225,7 +219,6 @@ print("Average Clustering", (total_triangles * 3) / total_triples)
 # Clustering coeff
 # print(nx.algorithms.cluster.average_clustering(result))
 
-print_timing("Metrics")
 
 # TODO: Make flag?
 # Visualize the result
