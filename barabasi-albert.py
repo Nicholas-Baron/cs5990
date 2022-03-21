@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import math
+from math import isqrt
 import networkx as nx
 from sys import exit
 from random import choice, random
@@ -25,9 +25,13 @@ if num_nodes < 1:
     print("Number of nodes must be positive")
     exit(1)
 
-expected_connections: int = int(input("Number of possible created edges per new node: "))
+expected_connections: int = int(
+    input("Number of possible created edges per new node: ")
+)
 if expected_connections > num_nodes or expected_connections < 1:
-    print("Must be less than the number of starting nodes and must be a positive integer")
+    print(
+        "Must be less than the number of starting nodes and must be a positive integer"
+    )
     exit(2)
 
 time: int = int(input("Number of times the algorithm will be run: "))
@@ -45,7 +49,7 @@ def print_timing(section: str):
 
 
 #  G = A Graph G(V0, E0) where |V0| = m0 and degree average is greater than or equal to 1.
-g = nx.grid_2d_graph(math.isqrt(num_nodes), math.isqrt(num_nodes))
+g = nx.grid_2d_graph(isqrt(num_nodes), isqrt(num_nodes))
 
 
 #  for 1 to t, create node. while new connections not reached,
@@ -54,7 +58,7 @@ for i in range(time):
     degree_average = sum(d for (n, d) in nx.degree(g)) / float(g.number_of_nodes())
 
     # create new node
-    new_node = num_nodes+i+1
+    new_node = num_nodes + i + 1
     g.add_node(new_node)
 
     while g.degree(new_node) != expected_connections:
@@ -66,10 +70,8 @@ for i in range(time):
             continue
 
         # richer get richer
-        avg = (g.degree(rand_node) / degree_average)
-        rand = random()
-        if rand > g.degree(rand_node) / degree_average:
-            g.add_edge(node, rand_node)
+        if random() > g.degree(rand_node) / degree_average:
+            g.add_edge(new_node, rand_node)
 
 print_timing("Create edges")
 
