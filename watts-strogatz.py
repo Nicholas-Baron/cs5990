@@ -192,20 +192,22 @@ print(f"Spawned {len(children)} subprocesses")
 last_print = len(input_squares)
 
 while last_print > 1:
+    sleep(10)
     if inputs_queue.qsize() != last_print:
         last_print = inputs_queue.qsize()
         print(f"{last_print} squares remain")
-
-    sleep(10)
 
 shortest_path = 0
 total_triples = 0
 total_triangles = 0
 
 # close all children
+print("Joining all children...")
 inputs_queue.join()
 for child in children:
     child.join()
+
+print("Work complete")
 
 # take from the queue
 while not results_queue.empty():
