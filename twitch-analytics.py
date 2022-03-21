@@ -21,9 +21,9 @@ G = nx.Graph()
 
 # Read in the edge list file
 with open('large_twitch_edges.csv', 'r') as nodecsv:
-    for (node,) in list(csv.reader(nodecsv))[1:]:
-        n = node.split(",")
-        # handles info nodes at the start of list
+    reader = csv.reader(nodecsv)
+    next(reader)
+    for n in reader:
         G.add_edge(n[0], n[1])
 
 print_timing("Create Graph")
