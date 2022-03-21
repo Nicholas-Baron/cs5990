@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=watts-strogatz
-#SBATCH --output=watts_out.txt
+#SBATCH --output=watts_out_%j.txt
 #SBATCH --ntasks=1
-#SBATCH --time=1:00:00
+#SBATCH --time=50:00:00
 #SBATCH --partition=compute
-#SBATCH --mem-per-cpu=1500M
+#SBATCH --mem-per-cpu=3500M
 #SBATCH -c 16
 
-srun python ./watts-strogatz.py < input.txt
+python ./watts-strogatz.py < input.txt
