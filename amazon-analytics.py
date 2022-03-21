@@ -3,9 +3,12 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 from sys import exit
-from time import time_ns
+from time import time_ns, sleep
 import gzip
 from csv import reader
+
+import multiprocessing as mp
+from multiprocessing import Process
 
 start = time_ns()
 

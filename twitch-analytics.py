@@ -4,8 +4,11 @@ import matplotlib.pyplot as plt
 import csv
 import networkx as nx
 from sys import exit
-from time import time_ns
+from time import time_ns, sleep
 from csv import reader
+
+import multiprocessing as mp
+from multiprocessing import Process
 
 start = time_ns()
 
