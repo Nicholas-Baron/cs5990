@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import networkx as nx
 from sys import exit
 from random import choice, random
@@ -24,13 +25,13 @@ if num_nodes < 1:
     print("Number of nodes must be positive")
     exit(1)
 
-m: float = float(input("Number of possible created edges per new node: "))
-if m > num_nodes:
-    print("Must be less than the number of starting nodes")
+expected_connections: int = int(input("Number of possible created edges per new node: "))
+if expected_connections > num_nodes or expected_connections < 1:
+    print("Must be less than the number of starting nodes and must be a positive integer")
     exit(2)
 
-time: float = float(input("Number of times the algorithm will be run: "))
-if t < 1:
+time: int = int(input("Number of times the algorithm will be run: "))
+if time < 1:
     print("Must be a positive integer")
     exit(3)
 
@@ -44,29 +45,31 @@ def print_timing(section: str):
 
 
 #  G = A Graph G(V0, E0) where |V0| = m0 and degree average is greater than or equal to 1.
-g = nx.complete_graph(num_nodes)
+g = nx.grid_2d_graph(math.isqrt(num_nodes), math.isqrt(num_nodes))
 
-# Make result graph
-result = nx.Graph(g)
-
-# calculate degree average
-degree_average = sum(d for (n, d) in nx.degree(G)) / float(G.number_of_nodes())
 
 #  for 1 to t, create node. while new connections not reached,
-for i in range(t):
+for i in range(time):
+    # calculate degree average
+    degree_average = sum(d for (n, d) in nx.degree(g)) / float(g.number_of_nodes())
+
+    # create new node
     new_node = num_nodes+i+1
-    result.add_node(new_node)
-    while result.neighbors(new_node) != m:
+    g.add_node(new_node)
+
+    while g.degree(new_node) != expected_connections:
         # vk = Select a node from V uniformly at random.
-        rand_node = choice(list(result))
+        rand_node = choice(list(g))
 
         # if rewiring e(vi , vj) to e(vi , vk) does not create loops in the graph or multiple edges between vi and vk then
-        if rand_node == node or rand_node in g.neighbors(node):
+        if rand_node == new_node or rand_node in g.neighbors(new_node):
             continue
 
-        # rewire e(vi , vj) with probability β: E = E−{e(vi , vj)}, E = E∪{e(vi , vk)};
-        if random() > (result.neighbors(rand_node) / degree_average):
-            result.add_edge(node, rand_node)
+        # richer get richer
+        avg = (g.degree(rand_node) / degree_average)
+        rand = random()
+        if rand > g.degree(rand_node) / degree_average:
+            g.add_edge(node, rand_node)
 
 print_timing("Create edges")
 
