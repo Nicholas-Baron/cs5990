@@ -182,11 +182,11 @@ input_squares = [
 for square in input_squares:
     inputs_queue.put(square)
 
+print(f"Loaded {len(input_squares)} tasks")
 
 for child in children:
     child.start()
 
-print(f"Loaded {len(input_squares)} tasks")
 print(f"Spawned {len(children)} subprocesses")
 
 last_print = len(input_squares)
