@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
-from operator import itemgetter
 import networkx as nx
 from sys import exit
 from random import choice, random
