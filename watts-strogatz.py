@@ -91,6 +91,7 @@ print_timing(f"Randomize edges (beta = {beta})")
 #  Return G(V, E)
 
 
+# TODO: this is overengineered b/c every process only works on 1 task. `input_q` should be replaced with the input
 def compute_metrics(
     G,
     result_q: "mp.Queue[tuple[int, int, int]]",
@@ -201,11 +202,13 @@ while not results_queue.empty():
     total_triples += num_triples
     total_triangles += num_triangles
 
+# for the shortest paths, we only want to count unique paths in our _undirected_ graph (ie a --> b but not b --> a).
+# the current algorithm double counts every path for every process we spawn.
+# the reason is that a process will count all paths from node a to any other node.
+# so for every process, we count a --> b where a is in the process's task
+shortest_path /= 2
 
-print(
-    "Average Shortest Path Length",
-    shortest_path / (2 * process_count * result.number_of_nodes()),
-)
+print("Average Shortest Path Length", shortest_path / result.number_of_nodes())
 
 print("Average Clustering", (total_triangles * 3) / total_triples)
 
