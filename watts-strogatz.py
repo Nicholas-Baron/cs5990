@@ -94,7 +94,7 @@ print_timing("Randomize edges")
 
 def compute_metrics(
     G,
-    result_q: "mp.Queue[tuple[int, float]]",
+    result_q: "mp.Queue[tuple[int, int, int]]",
     input_q: "mp.JoinableQueue[tuple[tuple[int,int], tuple[int, int]]]",
 ):
     nodes = list(G)
@@ -102,7 +102,8 @@ def compute_metrics(
         x_endpoints, y_endpoints = input_q.get()
 
         shortest_path = 0
-        clustering = 0
+        connected_triples = 0
+        triangles = 0
         for node in nodes[x_endpoints[0] : x_endpoints[1]]:
             # for the shortest paths, we only need to add the forward facing paths
             if node % 1000 == 0:
@@ -114,7 +115,30 @@ def compute_metrics(
                 if dest > node
             )
 
-        result_q.put((shortest_path, clustering))
+            # for clustering, we need 2 more nodes.
+            # this is because clustering tries to distinguish
+            # between triangles (n1, n2, n3 all connected to each other)
+            # and triples (n1, n2, n3 have some direct connections between them)
+
+            for middle in G.neighbors(node):
+                # we only care about forward connections
+                # because all triples/triangles will be processed according to their least element
+                if middle <= node:
+                    continue
+
+                # get a third node from somewhere after middle
+                for far_node in G.neighbors(middle):
+                    if far_node <= middle:
+                        continue
+
+                    # at this point, we know that node connects to middle
+                    # and middle connects to far_node.
+                    connected_triples += 1
+
+                    if G.has_edge(node, far_node):
+                        triangles += 1
+
+        result_q.put((shortest_path, connected_triples, triangles))
         input_q.task_done()
 
 
@@ -126,7 +150,7 @@ items_per_process = result.number_of_nodes() // process_count
 
 print("Items per process", items_per_process)
 
-results_queue: "mp.Queue[tuple[int,float]]" = mp.Queue()
+results_queue: "mp.Queue[tuple[int,int,int]]" = mp.Queue()
 inputs_queue: "mp.JoinableQueue[tuple[tuple[int,int],tuple[int,int]]]" = (
     mp.JoinableQueue()
 )
@@ -175,7 +199,8 @@ while last_print > 1:
     sleep(10)
 
 shortest_path = 0
-clustering = 0.0
+total_triples = 0
+total_triangles = 0
 
 # close all children
 inputs_queue.join()
@@ -184,14 +209,15 @@ for child in children:
 
 # take from the queue
 while not results_queue.empty():
-    shortest_path_temp, clustering_temp = results_queue.get()
+    shortest_path_temp, num_triples, num_triangles = results_queue.get()
     shortest_path += shortest_path_temp
-    clustering += clustering_temp
+    total_triples += num_triples
+    total_triangles += num_triangles
 
 
-print("Average Shortest Path Length", shortest_path / result.size())
+print("Average Shortest Path Length", shortest_path / result.number_of_nodes())
 
-print("Average Clustering", clustering / result.size())
+print("Average Clustering", (total_triangles * 3) / total_triples)
 
 # Avg Path length
 # print(nx.algorithms.shortest_paths.average_shortest_path_length(result))
