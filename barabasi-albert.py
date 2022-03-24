@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from math import isqrt
 import networkx as nx
 from sys import exit
 from random import choice, random
@@ -49,7 +48,7 @@ def print_timing(section: str):
 
 
 #  G = A Graph G(V0, E0) where |V0| = m0 and degree average is greater than or equal to 1.
-g = nx.grid_2d_graph(isqrt(num_nodes), isqrt(num_nodes))
+g = nx.cycle_graph(num_nodes)
 
 
 #  for 1 to t, create node. while new connections not reached,
