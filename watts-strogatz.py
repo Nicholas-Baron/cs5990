@@ -94,7 +94,7 @@ print_timing(f"Randomize edges (beta = {beta})")
 # TODO: this is overengineered b/c every process only works on 1 task. `input_q` should be replaced with the input
 def compute_metrics(
     G,
-    result_q: "mp.Queue[tuple[int, int, int]]",
+    result_q: "mp.Queue[tuple[int, int, int, int]]",
     input_q: "mp.JoinableQueue[tuple[int,int]]",
 ):
     nodes = list(G)
@@ -102,11 +102,13 @@ def compute_metrics(
         x_endpoints = input_q.get()
 
         shortest_path = 0
+        num_paths = 0
         connected_triples = 0
         triangles = 0
         for node in nodes[x_endpoints[0] : x_endpoints[1]]:
-
-            shortest_path += sum(nx.shortest_path_length(G, node).values())
+            paths = nx.shortest_path_length(G, node)
+            num_paths += len(paths)
+            shortest_path += sum(paths.values())
 
             # for clustering, we need 2 more nodes.
             # this is because clustering tries to distinguish
@@ -131,7 +133,7 @@ def compute_metrics(
                     if G.has_edge(node, far_node):
                         triangles += 1
 
-        result_q.put((shortest_path, connected_triples, triangles))
+        result_q.put((shortest_path, num_paths, connected_triples, triangles))
         input_q.task_done()
 
 
@@ -143,7 +145,7 @@ items_per_process = result.number_of_nodes() // process_count
 
 print("Items per process", items_per_process)
 
-results_queue: "mp.Queue[tuple[int,int,int]]" = mp.Queue()
+results_queue: "mp.Queue[tuple[int,int,int,int]]" = mp.Queue()
 inputs_queue: "mp.JoinableQueue[tuple[int,int]]" = mp.JoinableQueue()
 
 # Children will do any work available
@@ -184,6 +186,7 @@ while last_print > 1:
         print(f"{last_print} tasks remain")
 
 shortest_path = 0
+num_paths = 0
 total_triples = 0
 total_triangles = 0
 
@@ -197,8 +200,9 @@ print("Work complete")
 
 # take from the queue
 while not results_queue.empty():
-    shortest_path_temp, num_triples, num_triangles = results_queue.get()
+    shortest_path_temp, num_paths_temp, num_triples, num_triangles = results_queue.get()
     shortest_path += shortest_path_temp
+    num_paths += num_paths_temp
     total_triples += num_triples
     total_triangles += num_triangles
 
@@ -206,9 +210,8 @@ while not results_queue.empty():
 # the current algorithm double counts every path for every process we spawn.
 # the reason is that a process will count all paths from node a to any other node.
 # so for every process, we count a --> b where a is in the process's task
-shortest_path /= 2
 
-print("Average Shortest Path Length", shortest_path / result.number_of_nodes())
+print("Average Shortest Path Length", shortest_path / (2 * num_paths))
 
 print("Average Clustering", (total_triangles * 3) / total_triples)
 
