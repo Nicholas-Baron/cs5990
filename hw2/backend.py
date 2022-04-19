@@ -26,16 +26,8 @@ def load_graph(filename: str) -> Graph:
         # We need to `strip()` to remove the newline at the end of the edge entry.
         # split on the space
 
-        # processed_lines = (tuple(node.strip().split(" ")) for node in f)
-        # print(processed_lines)
-        # g.add_edges_from(edge for edge in processed_lines if len(edge) == 2)
-
-        for node in f:
-            n = node.strip().split(" ")
-            if len(n) >= 2:
-                g.add_edge(n[0], n[1])
-                if len(n) > 2:
-                    print(n)
+        processed_lines = (tuple(node.strip().split(" ")) for node in f)
+        g.add_edges_from(edge for edge in processed_lines if len(edge) == 2)
 
     return g
 
