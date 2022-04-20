@@ -2,6 +2,8 @@
 # Only functions that are needed by both the Twitter and Facebook scripts
 
 from networkx import Graph
+from networkx.algorithms.centrality.betweenness import betweenness_centrality
+
 from time import time_ns
 from typing import Dict
 import gzip
@@ -39,4 +41,4 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
 
 def serial_betweenness_centrality(g: Graph) -> Dict[int, float]:
     # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.centrality.betweenness_centrality.html
-    pass
+    return betweenness_centrality(g)
