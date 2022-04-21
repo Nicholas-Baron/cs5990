@@ -24,6 +24,8 @@ def load_graph(filename: str) -> Graph:
 
     assert filename.endswith(".txt.gz"), f"{filename} does not end in '.txt.gz'"
 
+    print("Loading from", filename)
+
     with gzip.open(filename, "rt") as f:
         # We need to `strip()` to remove the newline at the end of the edge entry.
         # split on the space
