@@ -12,7 +12,14 @@ if [ ! -x "$input_filename" ]; then
     exit
 fi
 
-env input_filename="$input_filename" sbatch \
-    --job-name="${input_filename%.*}" \
-    --output="${input_filename%.*}_out_%j.txt" \
-	sbatch.sh
+sbatch << EOF
+#!/bin/bash
+#SBATCH --job-name=${input_filename%.*}
+#SBATCH --ntasks=1
+#SBATCH --output=${input_filename%.*}_out_%j.txt
+#SBATCH --partition=compute
+
+echo "Running $input_filename"
+
+python ${input_filename}
+EOF
