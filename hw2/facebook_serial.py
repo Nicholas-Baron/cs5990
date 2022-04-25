@@ -1,8 +1,13 @@
 #!/usr/bin/python3
 
-from backend import load_graph, serial_betweenness_centrality, print_timing
+from backend import (
+    load_graph,
+    print_centrality_data,
+    print_timing,
+    serial_betweenness_centrality,
+)
+
 import networkx as nx
-from pprint import pprint
 
 # Facebook dataset
 # no parallelism
@@ -15,4 +20,4 @@ print(g)
 centralities = serial_betweenness_centrality(g)
 print_timing("Betweenness Centrality")
 
-pprint(centralities)
+print_centrality_data("facebook_serial_raw_output.txt", centralities)

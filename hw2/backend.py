@@ -4,6 +4,8 @@
 from networkx import Graph
 from networkx.algorithms.centrality.betweenness import betweenness_centrality
 
+from pprint import pprint
+from statistics import mean
 from time import time_ns
 from typing import Dict
 import gzip
@@ -46,3 +48,18 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
 def serial_betweenness_centrality(g: Graph) -> Dict[int, float]:
     # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.centrality.betweenness_centrality.html
     return betweenness_centrality(g)
+
+
+def print_centrality_data(filename: str, data: Dict[int, float]):
+    # Print out to a local file the centrality measures for all the vertices.
+    with open(filename, "w") as output:
+        pprint(data, stream=output)
+
+    # print five nodes with the top centrality values
+    for (node, centrality) in sorted(data.items(), reverse=True, key=lambda x: x[1])[
+        :5
+    ]:
+        print(f"{node:5}{centrality:5.5}")
+
+    # print the average of the centrality values of all nodes
+    print("Centrality Average", mean(data.values()))
