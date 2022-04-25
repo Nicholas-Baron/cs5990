@@ -31,7 +31,7 @@ sbatch << EOF
 #SBATCH --output=${input_filename%.*}_out_%j.txt
 #SBATCH --partition=compute
 
-echo "Running $input_filename"
+echo "Running $input_filename on $num_jobs jobs"
 
 python ${input_filename}
 EOF
