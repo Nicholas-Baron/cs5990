@@ -14,7 +14,9 @@ start = time_ns()
 # Print time with section name and reset internal timer
 def print_timing(section: str):
     global start
-    print(f"{section:25}", (time_ns() - start) / 1000000, "ms")
+    total_ms_taken = (time_ns() - start) // 1000000
+    seconds_taken = total_ms_taken // 1000
+    print(f"{section:25} {seconds_taken:10} seconds")
     start = time_ns()
 
 
