@@ -52,7 +52,7 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
 
 def serial_betweenness_centrality(g: Graph) -> Dict[int, float]:
     # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.centrality.betweenness_centrality.html
-    return betweenness_centrality(g)
+    return betweenness_centrality(g, normalized=False)
 
 
 def print_centrality_data(filename: str, data: Dict[int, float]):
@@ -65,7 +65,7 @@ def print_centrality_data(filename: str, data: Dict[int, float]):
     for (node, centrality) in sorted(data.items(), reverse=True, key=lambda x: x[1])[
         :5
     ]:
-        print(f"{node:5}{centrality:5.5}")
+        print(f"{node:5} {centrality:5.5}")
 
     # print the average of the centrality values of all nodes
     print("Centrality Average", mean(data.values()))
