@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 
+from backend import print_timing
 import networkx as nx
 from itertools import product
 from pprint import pprint
 from typing import Dict, Tuple, List, Optional
 
-g = nx.Graph()
-g.add_edges_from([(0, 1), (0, 2), (0, 3), (1, 3), (2, 3)])
+g = nx.watts_strogatz_graph(1000, 2, 0.5)
 
 NODE_COUNT = g.number_of_nodes()
 
@@ -26,6 +26,8 @@ for (u, v) in g.edges():
 for v in range(NODE_COUNT):
     dist[v][v] = 0
 
+print_timing("Initalization")
+
 for k in range(NODE_COUNT):
     for i in range(NODE_COUNT):
         if k == i:
@@ -34,8 +36,6 @@ for k in range(NODE_COUNT):
         for j in range(NODE_COUNT):
             if k == j or j == i:
                 continue
-
-            print(f"{i} - {k} - {j}")
 
             possible_new_path = dist[i][k] + dist[k][j]
             if dist[i][j] > possible_new_path:
@@ -50,8 +50,26 @@ for k in range(NODE_COUNT):
                     for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
                 }
 
+print_timing("Floyd-Warshall")
 
-print(g)
-print(g.edges())
-pprint(paths)
-pprint(dist)
+# between centrality
+for node in g.nodes():
+    centrality = 0.0
+    for src in g.nodes():
+        if node == src:
+            continue
+
+        for dest in g.nodes():
+            if dest == src or node == dest:
+                continue
+
+            all_paths = paths[(src, dest)]
+            paths_thru_node = sum(
+                1 for path in all_paths for stop in path if stop == node
+            )
+
+            centrality += paths_thru_node / len(all_paths)
+
+    print(f"Betweenness centrality for {node}: {centrality}")
+
+print_timing("Betweenness centrality")
