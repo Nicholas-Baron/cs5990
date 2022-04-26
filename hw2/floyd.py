@@ -63,7 +63,10 @@ for node in g.nodes():
             if dest == src or node == dest:
                 continue
 
-            all_paths = paths[(src, dest)]
+            all_paths = paths.get((src, dest))
+            if all_paths is None:
+                continue
+
             paths_thru_node = sum(
                 1 for path in all_paths for stop in path if stop == node
             )
