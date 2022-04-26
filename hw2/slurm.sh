@@ -17,7 +17,7 @@ num_jobs=1
 if [ $# -eq 2 ]; then
     num_jobs=$2
     if [ $num_jobs -lt 2 ]; then
-        echo "Number of jobs should be above 2. Found $num_jobs"
+        echo "Explicit number of jobs should be above 2. Found $num_jobs"
         exit
     fi
 fi
