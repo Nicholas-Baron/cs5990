@@ -56,6 +56,7 @@ def print_centrality_data(filename: str, data: Dict[int, float]):
         pprint(data, stream=output)
 
     # print five nodes with the top centrality values
+    print("Top 5 nodes by centrality")
     for (node, centrality) in sorted(data.items(), reverse=True, key=lambda x: x[1])[
         :5
     ]:
