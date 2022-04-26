@@ -1,0 +1,26 @@
+let dist be a |V| × |V| array of minimum distances initialized to ∞ (infinity)
+let paths be a map from (u,v) to a list of paths
+
+for each edge (u, v) do
+    dist[u][v] ←  w(u, v)  // The weight of the edge (u, v)
+
+for each vertex v do
+    dist[v][v] ←  0
+
+for k from 1 to |V|          // intermediate
+    for i from 1 to |V|      // source
+        if k == i
+            continue
+        end if
+        for j from 1 to |V|  // destination
+            if k == j
+                continue
+            end if
+
+            let possible_new_path = dist[i][k] + dist[k][j] 
+            if dist[i][j] > possible_new_path
+                dist[i][j] ←  possible_new_path
+                paths[(i,j)] = [ concat(paths[(i,k)], paths[(k,j)]) ]
+            else if dist[i][j] == possible_new_path
+                paths[(i,j)] += concat(paths[(i,k)], paths[(k,j)])
+            end if
