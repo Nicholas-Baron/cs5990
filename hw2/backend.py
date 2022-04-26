@@ -18,7 +18,12 @@ def print_timing(section: str):
     global start
     total_ms_taken = (time_ns() - start) // 1000000
     seconds_taken = total_ms_taken // 1000
-    print(f"{section:25} {seconds_taken:10} seconds")
+
+    if seconds_taken > 0:
+        print(f"{section:25} {seconds_taken:10} seconds")
+    else:
+        print(f"{section:25} {total_ms_taken:10} ms")
+
     start = time_ns()
 
 
