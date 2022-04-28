@@ -1,6 +1,11 @@
 #!/usr/bin/python3
 
-from backend import load_graph, print_timing
+from backend import (
+    load_graph,
+    print_centrality_data,
+    print_timing,
+    serial_betweenness_centrality,
+)
 import networkx as nx
 
 # Twitter dataset
