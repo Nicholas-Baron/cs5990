@@ -46,7 +46,15 @@ def load_graph(filename: str) -> Graph:
 
 
 def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
-    # Use MPI and partition?
+    # 1. Initalize the dist matrix and path dictionary
+    # Note: since our graph is undirected, we need to do (u,v) and (v,u)
+    # 2. Get info from MPI
+    # 3. Loop over k
+    # 3a. Do in parallel
+    # 3aa. Calculate distance in 1 row
+    # 3ab. Update path dictionary
+    # 3ac. Transmit updates to everyone
+    # 4. Calculate betweenness_centrality in parallel
     pass
 
 
