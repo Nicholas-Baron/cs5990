@@ -30,6 +30,7 @@ sbatch << EOF
 #SBATCH --ntasks=$num_jobs
 #SBATCH --output=${input_filename%.*}_out_%j.txt
 #SBATCH --partition=compute
+#SBATCH --time=168:00:00
 
 echo "Running $input_filename on $num_jobs jobs"
 
