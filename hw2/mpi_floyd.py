@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from backend import print_timing
+from itertools import product
 import networkx as nx
 from mpi4py import MPI
 from pprint import pprint
@@ -40,13 +41,17 @@ dist = [[INITIAL_VALUE for _ in range(NODE_COUNT)] for _ in range(NODE_COUNT)]
 # Initialize paths dictionary (key: (source, dest) value: set of tuple-funkiness as set of nodes between source & dest
 paths: Dict[Tuple[int, int], Set[Tuple[int, ...]]] = {}
 
+# Initialize shape of paths (This will be huge, can we fix?)
+for (u, v) in product(range(NODE_COUNT), range(NODE_COUNT)):
+    paths[(u, v)] = {tuple()}
+    paths[(v, u)] = {tuple()}
+
+
 # For edge's source and dest, distance = 1. Instantiate paths[source, dest] as empty path list
 for (u, v) in g.edges():
     dist[u][v] = 1
-    paths[(u, v)] = {tuple()}
     # undirected means (u,v) is also (v,u)
     dist[v][u] = 1
-    paths[(v, u)] = {tuple()}
 
 # Set diagonal (distance between node and self is 0)
 for v in range(NODE_COUNT):
@@ -64,6 +69,8 @@ for k in range(NODE_COUNT):
     for off in range(num_nodes_per_proc):
         # Offset i based on processor amount
         i = rank * num_nodes_per_proc + off
+        if k == i:
+            continue
         for j in range(NODE_COUNT):
             if k == j or j == i:
                 continue
@@ -71,6 +78,15 @@ for k in range(NODE_COUNT):
             possible_new_path = dist[i][k] + dist[k][j]
             if dist[i][j] > possible_new_path:
                 dist[i][j] = possible_new_path
+                paths[(i, j)] = {
+                    tuple(list(half1) + [k] + list(half2))
+                    for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                }
+            elif dist[i][j] == possible_new_path:
+                paths[(i, j)] |= {
+                    tuple(list(half1) + [k] + list(half2))
+                    for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                }
 
         for proc in range(num_proc):
             # Row that is transmitted
@@ -88,6 +104,10 @@ for k in range(NODE_COUNT):
             #         off,
             #     )
             sent_row = comm.bcast(dist[index_to_transmit], root=proc)
+            for m in range(NODE_COUNT):
+                if m != index_to_transmit:
+                    sent_path = comm.bcast(paths[(index_to_transmit, m)], root=num_proc - 1)
+                    paths[(index_to_transmit, m)] = sent_path
             # apply the new row
             dist[index_to_transmit] = sent_row
             for (i, val) in enumerate(sent_row):
@@ -102,8 +122,19 @@ for k in range(NODE_COUNT):
                     continue
 
                 possible_new_path = dist[i][k] + dist[k][j]
+
                 if dist[i][j] > possible_new_path:
                     dist[i][j] = possible_new_path
+                    paths[(i, j)] = {
+                        tuple(list(half1) + [k] + list(half2))
+                        for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                    }
+
+                elif dist[i][j] == possible_new_path:
+                    paths[(i, j)] |= {
+                        tuple(list(half1) + [k] + list(half2))
+                        for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                    }
 
     # transmit remainders
     for off in range(remainder_nodes):
@@ -122,12 +153,16 @@ for k in range(NODE_COUNT):
         #     )
         # Broadcast from the last processor (handles the remainders)
         sent_row = comm.bcast(dist[index_to_transmit], root=num_proc - 1)
+        for m in range(NODE_COUNT):
+            if m != index_to_transmit:
+                sent_path = comm.bcast(paths[(index_to_transmit, m)], root=num_proc - 1)
+                paths[(index_to_transmit, m)] = sent_path
         # apply the new row
         dist[index_to_transmit] = sent_row
         for (i, val) in enumerate(sent_row):
             dist[i][index_to_transmit] = val
 
-
 if rank == 0:
     print_timing("Floyd-Warshall")
     pprint(dist)
+    pprint(paths)
