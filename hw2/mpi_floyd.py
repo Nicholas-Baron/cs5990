@@ -95,10 +95,10 @@ for k in range(NODE_COUNT):
             #     )
             dict_to_send = {
                 (i, j): path_set
-                for (i, j), path_set in paths.values()
+                for (i, j), path_set in paths.items()
                 if i == index_to_transmit
             }
-            for (i, j), path_set in comm.bcast(dict_to_send, root=proc):
+            for (i, j), path_set in comm.bcast(dict_to_send, root=proc).items():
                 paths[(i, j)] = path_set
             # apply the new row
             sent_row = comm.bcast(dist[index_to_transmit], root=proc)
@@ -147,10 +147,10 @@ for k in range(NODE_COUNT):
         # Broadcast from the last processor (handles the remainders)
         dict_to_send = {
             (i, j): path_set
-            for ((i, j), path_set) in paths.values()
+            for ((i, j), path_set) in paths.items()
             if i == index_to_transmit
         }
-        for (i, j), path_set in comm.bcast(dict_to_send, root=proc).values():
+        for (i, j), path_set in comm.bcast(dict_to_send, root=proc).items():
             paths[(i, j)] = path_set
         # apply the new row
         sent_row = comm.bcast(dist[index_to_transmit], root=num_proc - 1)
