@@ -93,12 +93,15 @@ for k in range(NODE_COUNT):
             #         "off",
             #         off,
             #     )
-            sent_row = comm.bcast(dist[index_to_transmit], root=proc)
-            for m in range(NODE_COUNT):
-                if m != index_to_transmit:
-                    sent_path = comm.bcast(paths[(index_to_transmit, m)], root=proc)
-                    paths[(index_to_transmit, m)] = sent_path
+            dict_to_send = {
+                (i, j): path_set
+                for (i, j), path_set in paths.values()
+                if i == index_to_transmit
+            }
+            for (i, j), path_set in comm.bcast(dict_to_send, root=proc):
+                paths[(i, j)] = path_set
             # apply the new row
+            sent_row = comm.bcast(dist[index_to_transmit], root=proc)
             dist[index_to_transmit] = sent_row
             for (i, val) in enumerate(sent_row):
                 dist[i][index_to_transmit] = val
@@ -142,12 +145,15 @@ for k in range(NODE_COUNT):
         #         off,
         #     )
         # Broadcast from the last processor (handles the remainders)
-        sent_row = comm.bcast(dist[index_to_transmit], root=num_proc - 1)
-        for m in range(NODE_COUNT):
-            if m != index_to_transmit:
-                sent_path = comm.bcast(paths[(index_to_transmit, m)], root=num_proc - 1)
-                paths[(index_to_transmit, m)] = sent_path
+        dict_to_send = {
+            (i, j): path_set
+            for ((i, j), path_set) in paths.values()
+            if i == index_to_transmit
+        }
+        for (i, j), path_set in comm.bcast(dict_to_send, root=proc).values():
+            paths[(i, j)] = path_set
         # apply the new row
+        sent_row = comm.bcast(dist[index_to_transmit], root=num_proc - 1)
         dist[index_to_transmit] = sent_row
         for (i, val) in enumerate(sent_row):
             dist[i][index_to_transmit] = val
