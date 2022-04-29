@@ -19,18 +19,7 @@ print("Rank", rank)
 g = nx.Graph()
 
 # Toy example (remove)
-g.add_edges_from(
-    [
-        (0, 4),
-        (1, 4),
-        (2, 3),
-        (2, 5),
-        (2, 6),
-        (3, 4),
-        (3, 5),
-        (3, 6)
-    ]
-)
+g.add_edges_from([(0, 4), (1, 4), (2, 3), (2, 5), (2, 6), (3, 4), (3, 5), (3, 6)])
 
 NODE_COUNT = g.number_of_nodes()
 
@@ -39,19 +28,20 @@ INITIAL_VALUE = 8
 dist = [[INITIAL_VALUE for _ in range(NODE_COUNT)] for _ in range(NODE_COUNT)]
 
 # Initialize paths dictionary (key: (source, dest) value: set of tuple-funkiness as set of nodes between source & dest
-paths: Dict[Tuple[int, int], Set[Tuple[int, ...]]] = {}
-
-# Initialize shape of paths (This will be huge, can we fix?)
-for (u, v) in product(range(NODE_COUNT), range(NODE_COUNT)):
-    paths[(u, v)] = {tuple()}
-    paths[(v, u)] = {tuple()}
+paths: Dict[Tuple[int, int], Set[Tuple[int, ...]]] = {
+    (u, v): set() for (u, v) in product(range(NODE_COUNT), range(NODE_COUNT))
+}
 
 
 # For edge's source and dest, distance = 1. Instantiate paths[source, dest] as empty path list
+# Initialize shape of paths (This will be huge, can we fix?)
 for (u, v) in g.edges():
     dist[u][v] = 1
     # undirected means (u,v) is also (v,u)
     dist[v][u] = 1
+
+    paths[(u, v)] = {tuple()}
+    paths[(v, u)] = {tuple()}
 
 # Set diagonal (distance between node and self is 0)
 for v in range(NODE_COUNT):
@@ -106,7 +96,7 @@ for k in range(NODE_COUNT):
             sent_row = comm.bcast(dist[index_to_transmit], root=proc)
             for m in range(NODE_COUNT):
                 if m != index_to_transmit:
-                    sent_path = comm.bcast(paths[(index_to_transmit, m)], root=num_proc - 1)
+                    sent_path = comm.bcast(paths[(index_to_transmit, m)], root=proc)
                     paths[(index_to_transmit, m)] = sent_path
             # apply the new row
             dist[index_to_transmit] = sent_row
