@@ -27,7 +27,7 @@ echo "Running $input_filename on $num_jobs jobs"
 sbatch << EOF
 #!/bin/bash
 #SBATCH --job-name=${input_filename%.*}
-#SBATCH --mem-per-cpu=2G
+#SBATCH --mem-per-cpu=16G
 #SBATCH --ntasks=$num_jobs
 #SBATCH --output=${input_filename%.*}_out_%j.txt
 #SBATCH --partition=compute
@@ -35,7 +35,7 @@ sbatch << EOF
 
 echo "Running $input_filename on $num_jobs jobs"
 
-python ${input_filename}
+mpirun -n $num_jobs python ${input_filename}
 EOF
 
 squeue
