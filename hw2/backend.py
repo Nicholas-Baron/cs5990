@@ -4,11 +4,13 @@
 from networkx import Graph
 from networkx.algorithms.centrality.betweenness import betweenness_centrality
 
+import gzip
+from itertools import product
+from mpi4py import MPI
 from pprint import pprint
 from statistics import mean
 from time import time_ns
 from typing import Dict
-import gzip
 
 start = time_ns()
 
@@ -48,16 +50,96 @@ def load_graph(filename: str) -> Graph:
 
 
 def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
-    # 1. Initalize the dist matrix and path dictionary
-    # Note: since our graph is undirected, we need to do (u,v) and (v,u)
-    # 2. Get info from MPI
-    # 3. Loop over k
-    # 3a. Do in parallel
-    # 3aa. Calculate distance in 1 row
-    # 3ab. Update path dictionary
-    # 3ac. Transmit updates to everyone
-    # 4. Calculate betweenness_centrality in parallel
-    pass
+
+    # Initalization
+    # INITIAL_VALUE was chosen by finding the largest diameter of our datasets and rounding up
+    INITIAL_VALUE = 10
+    NODE_COUNT = g.number_of_nodes()
+    dist = [[INITIAL_VALUE for _ in range(NODE_COUNT)] for _ in range(NODE_COUNT)]
+
+    paths: Dict[tuple[int, int], set[tuple[int, ...]]] = {}
+
+    for (u, v) in g.edges():
+        dist[u][v] = 1
+        paths[(u, v)] = {tuple()}
+        # undirected means (u,v) is also (v,u)
+        dist[v][u] = 1
+        paths[(v, u)] = {tuple()}
+
+    for v in range(NODE_COUNT):
+        dist[v][v] = 0
+
+    # Serial Floyd-Warshall
+    for k in range(NODE_COUNT):
+        for i in range(NODE_COUNT):
+            if k == i:
+                continue
+
+            for j in range(NODE_COUNT):
+                if k == j or j == i:
+                    continue
+
+                possible_new_path = dist[i][k] + dist[k][j]
+                if dist[i][j] > possible_new_path:
+                    dist[i][j] = possible_new_path
+                    paths[(i, j)] = {
+                        tuple(list(half1) + [k] + list(half2))
+                        for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                    }
+                elif dist[i][j] == possible_new_path:
+                    paths[(i, j)] |= {
+                        tuple(list(half1) + [k] + list(half2))
+                        for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                    }
+
+    # Parallel betweenness centrality
+    comm = MPI.COMM_WORLD
+    num_proc = comm.Get_size()
+    rank = comm.Get_rank()
+
+    # Divvy nodes and remainders between processors
+    num_nodes_per_proc = NODE_COUNT // num_proc
+    remainder_nodes = NODE_COUNT % num_proc
+
+    centrality_results = {}
+
+    def calculate_centrality(node: int) -> float:
+        centrality = 0.0
+        for src in g.nodes():
+            if node == src:
+                continue
+
+            for dest in g.nodes():
+                if dest == src or node == dest:
+                    continue
+
+                all_paths = paths.get((src, dest))
+                if all_paths is None:
+                    continue
+
+                paths_thru_node = sum(
+                    1 for path in all_paths for stop in path if stop == node
+                )
+
+                centrality += paths_thru_node / len(all_paths)
+        return centrality
+
+    for off in range(num_nodes_per_proc):
+        node = rank * num_nodes_per_proc + off
+        centrality_results[node] = calculate_centrality(node)
+
+    centrality_results = {
+        node: centrality
+        for proc_result in comm.allgather(centrality_results)
+        for (node, centrality) in proc_result.items()
+    }
+
+    # compute remaining nodes
+    for off in range(remainder_nodes):
+        node = (num_proc - 1) * num_nodes_per_proc + off
+        centrality_results[node] = calculate_centrality(node)
+
+    return centrality_results
 
 
 def serial_betweenness_centrality(g: Graph) -> Dict[int, float]:
