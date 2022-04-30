@@ -96,7 +96,7 @@ for k in range(NODE_COUNT):
             dict_to_send = {
                 (i, j): path_set
                 for (i, j), path_set in paths.items()
-                if i == index_to_transmit
+                if i == index_to_transmit and paths[(i, j)] != set() 
             }
             for (i, j), path_set in comm.bcast(dict_to_send, root=proc).items():
                 paths[(i, j)] = path_set
