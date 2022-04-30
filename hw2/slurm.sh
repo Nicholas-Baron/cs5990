@@ -27,6 +27,7 @@ echo "Running $input_filename on $num_jobs jobs"
 sbatch << EOF
 #!/bin/bash
 #SBATCH --job-name=${input_filename%.*}
+#SBATCH --mem-per-cpu=2G
 #SBATCH --ntasks=$num_jobs
 #SBATCH --output=${input_filename%.*}_out_%j.txt
 #SBATCH --partition=compute
