@@ -6,6 +6,29 @@ from mpi4py import MPI
 from pprint import pprint
 from typing import Dict, Tuple, Set
 
+def compute_distance():
+    i = rank * num_nodes_per_proc + off
+    for j in range(NODE_COUNT):
+        if k == j or j == i:
+            continue
+    
+        possible_new_path = dist[i][k] + dist[k][j]
+        if dist[i][j] > possible_new_path:
+            dist[i][j] = possible_new_path
+    return i, j
+
+def trasmit_data():
+    for proc in range(num_proc):
+        # Row that is transmitted
+        index_to_transmit = proc * num_nodes_per_proc + off
+    
+        sent_row = comm.bcast(dist[index_to_transmit], root=proc)
+        # apply the new row
+        dist[index_to_transmit] = sent_row
+        for (i, val) in enumerate(sent_row):
+            dist[i][index_to_transmit] = val
+    return proc
+
 comm = MPI.COMM_WORLD
 num_proc = comm.Get_size()
 rank = comm.Get_rank()
@@ -63,63 +86,17 @@ remainder_nodes = NODE_COUNT % num_proc
 for k in range(NODE_COUNT):
     for off in range(num_nodes_per_proc):
         # Offset i based on processor amount
-        i = rank * num_nodes_per_proc + off
-        for j in range(NODE_COUNT):
-            if k == j or j == i:
-                continue
-
-            possible_new_path = dist[i][k] + dist[k][j]
-            if dist[i][j] > possible_new_path:
-                dist[i][j] = possible_new_path
-
-        for proc in range(num_proc):
-            # Row that is transmitted
-            index_to_transmit = proc * num_nodes_per_proc + off
-            # Debug statement for index out of range error
-            # if index_to_transmit >= len(dist):
-            #     print(
-            #         "rank",
-            #         rank,
-            #         "proc",
-            #         proc,
-            #         "num_nodes_per_proc",
-            #         num_nodes_per_proc,
-            #         "off",
-            #         off,
-            #     )
-            sent_row = comm.bcast(dist[index_to_transmit], root=proc)
-            # apply the new row
-            dist[index_to_transmit] = sent_row
-            for (i, val) in enumerate(sent_row):
-                dist[i][index_to_transmit] = val
+        i, j = compute_distance()
+        proc = trasmit_data()
 
     # process remainders
     if rank == num_proc - 1:
         for off in range(remainder_nodes):
-            i = rank * num_nodes_per_proc + off
-            for j in range(NODE_COUNT):
-                if k == j or j == i:
-                    continue
-
-                possible_new_path = dist[i][k] + dist[k][j]
-                if dist[i][j] > possible_new_path:
-                    dist[i][j] = possible_new_path
+            i, j = compute_distance()
 
     # transmit remainders
     for off in range(remainder_nodes):
         index_to_transmit = (num_proc - 1) * num_nodes_per_proc + off
-        # Debug for index out of range error
-        # if index_to_transmit >= len(dist):
-        #     print(
-        #         "rank",
-        #         rank,
-        #         "proc",
-        #         proc,
-        #         "num_nodes_per_proc",
-        #         num_nodes_per_proc,
-        #         "off",
-        #         off,
-        #     )
         # Broadcast from the last processor (handles the remainders)
         sent_row = comm.bcast(dist[index_to_transmit], root=num_proc - 1)
         # apply the new row
