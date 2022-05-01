@@ -69,30 +69,6 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     for v in range(NODE_COUNT):
         dist[v][v] = 0
 
-    # Serial Floyd-Warshall
-    for k in range(NODE_COUNT):
-        for i in range(NODE_COUNT):
-            if k == i:
-                continue
-
-            for j in range(NODE_COUNT):
-                if k == j or j == i:
-                    continue
-
-                possible_new_path = dist[i][k] + dist[k][j]
-                if dist[i][j] > possible_new_path:
-                    dist[i][j] = possible_new_path
-                    paths[(i, j)] = {
-                        tuple(list(half1) + [k] + list(half2))
-                        for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                    }
-                elif dist[i][j] == possible_new_path:
-                    paths[(i, j)] |= {
-                        tuple(list(half1) + [k] + list(half2))
-                        for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                    }
-
-    # Parallel betweenness centrality
     comm = MPI.COMM_WORLD
     num_proc = comm.Get_size()
     rank = comm.Get_rank()
@@ -101,6 +77,55 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     num_nodes_per_proc = NODE_COUNT // num_proc
     remainder_nodes = NODE_COUNT % num_proc
 
+    # Parallel Floyd-Warshall
+
+    def transmit_row_data(k: int, off: int):
+        for proc in range(num_proc):
+            row = rank * num_nodes_per_proc + off
+
+            # transmit the distances
+            dist[row] = comm.bcast(dist[row], root=proc)
+
+            # transmit the paths
+            for j, path_set in comm.bcast(
+                {j: path_set for (i, j), path_set in paths.items() if i == row},
+                root=proc,
+            ).items():
+                paths[(row, j)] = path_set
+
+    def update_paths(k: int, i: int, j: int):
+        possible_new_path = dist[i][k] + dist[k][j]
+        if dist[i][j] > possible_new_path:
+            dist[i][j] = possible_new_path
+            paths[(i, j)] = {
+                tuple(list(half1) + [k] + list(half2))
+                for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+            }
+        elif dist[i][j] == possible_new_path:
+            paths[(i, j)] |= {
+                tuple(list(half1) + [k] + list(half2))
+                for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+            }
+
+    for k in range(NODE_COUNT):
+        for off in range(num_nodes_per_proc):
+            i = rank * num_nodes_per_proc + off
+            for j in range(NODE_COUNT):
+                if k == j or j == i:
+                    continue
+                update_paths(k, i, j)
+
+            transmit_row_data(k, off)
+
+        # calculate remainders
+        for off in range(remainder_nodes):
+            i = (num_proc - 1) * num_nodes_per_proc + off
+            for j in range(NODE_COUNT):
+                if k == j or j == i:
+                    continue
+                update_paths(k, i, j)
+
+    # Parallel betweenness centrality
     centrality_results = {}
 
     def calculate_centrality(node: int) -> float:
