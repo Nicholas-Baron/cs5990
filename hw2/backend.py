@@ -10,7 +10,7 @@ from mpi4py import MPI
 from pprint import pprint
 from statistics import mean
 from time import time_ns
-from typing import Dict
+from typing import Dict, Tuple, Set
 
 start = time_ns()
 
@@ -55,19 +55,32 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     # INITIAL_VALUE was chosen by finding the largest diameter of our datasets and rounding up
     INITIAL_VALUE = 10
     NODE_COUNT = g.number_of_nodes()
-    dist = [[INITIAL_VALUE for _ in range(NODE_COUNT)] for _ in range(NODE_COUNT)]
 
-    paths: Dict[tuple[int, int], set[tuple[int, ...]]] = {}
+    # key: u,v pair; value: int distance
+    dist: Dict[Tuple[int, int], int] = {}
+
+    # I think pythonic 1 liner may be faster...
+    for u in g.nodes:
+        for v in g.nodes:
+            dist[(u, v)] = INITIAL_VALUE
+
+    # dist = [[INITIAL_VALUE for _ in range(NODE_COUNT)] for _ in range(NODE_COUNT)]
+
+
+    paths: Dict[Tuple[int, int], Set[Tuple[int, ...]]] = {}
 
     for (u, v) in g.edges():
-        dist[u][v] = 1
+        dist[(u, v)] = 1
+        # dist[u][v] = 1
         paths[(u, v)] = {tuple()}
         # undirected means (u,v) is also (v,u)
-        dist[v][u] = 1
+        dist[(v, u)] = 1
+        # dist[v][u] = 1
         paths[(v, u)] = {tuple()}
 
     for v in range(NODE_COUNT):
-        dist[v][v] = 0
+        # dist[v][v] = 0
+        dist[(v, v)] = 0
 
     # Serial Floyd-Warshall
     for k in range(NODE_COUNT):
@@ -79,14 +92,19 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
                 if k == j or j == i:
                     continue
 
-                possible_new_path = dist[i][k] + dist[k][j]
-                if dist[i][j] > possible_new_path:
-                    dist[i][j] = possible_new_path
+                # possible_new_path = dist[i][k] + dist[k][j]
+                possible_new_path = dist[(i, k)] + dist[(k, j)]
+
+                # if dist[i][j] > possible_new_path:
+                if dist[(i, j)] > possible_new_path:
+                    dist[(i, j)] = possible_new_path
+                    # dist[i][j] = possible_new_path
                     paths[(i, j)] = {
                         tuple(list(half1) + [k] + list(half2))
                         for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
                     }
-                elif dist[i][j] == possible_new_path:
+                # elif dist[i][j] == possible_new_path:
+                elif dist[(i, j)] == possible_new_path:
                     paths[(i, j)] |= {
                         tuple(list(half1) + [k] + list(half2))
                         for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
