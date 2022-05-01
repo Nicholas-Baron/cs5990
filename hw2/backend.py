@@ -11,7 +11,7 @@ from mpi4py import MPI
 from pprint import pprint
 from statistics import mean
 from time import time_ns
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 start = time_ns()
 
@@ -56,7 +56,7 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     INITIAL_VALUE = 10
     NODE_COUNT = g.number_of_nodes()
 
-    paths: Dict[tuple[int, int], List[tuple[int, ...]]] = {}
+    paths: Dict[Tuple[int, int], List[Tuple[int, ...]]] = {}
 
     for (u, v) in g.edges():
         paths[(u, v)] = [tuple()]
@@ -66,7 +66,7 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     # Init
     print("Init paths: " + str(sys.getsizeof(paths)))
 
-    def compute_paths(k: int, i: int, j: int) -> List[tuple[int, ...]]:
+    def compute_paths(k: int, i: int, j: int) -> List[Tuple[int, ...]]:
         return [
             tuple(list(half1) + [k] + list(half2))
             for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
