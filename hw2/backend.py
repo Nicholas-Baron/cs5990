@@ -56,33 +56,14 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     INITIAL_VALUE = 10
     NODE_COUNT = g.number_of_nodes()
 
-    # key: u,v pair; value: int distance
-    # dist: Dict[Tuple[int, int], int] = {}
-
-    # I think pythonic 1 liner may be faster...
-    # for u in g.nodes:
-    #     for v in g.nodes:
-    #         dist[(u, v)] = INITIAL_VALUE
-
-    # dist = [[INITIAL_VALUE for _ in range(NODE_COUNT)] for _ in range(NODE_COUNT)]
-
     paths: Dict[tuple[int, int], List[tuple[int, ...]]] = {}
 
     for (u, v) in g.edges():
-        # dist[(u, v)] = 1
-        # dist[u][v] = 1
         paths[(u, v)] = [tuple()]
         # undirected means (u,v) is also (v,u)
-        # dist[(v, u)] = 1
-        # dist[v][u] = 1
         paths[(v, u)] = [tuple()]
 
-    # for v in g.nodes:
-    # dist[v][v] = 0
-    # dist[(v, v)] = 0
-
     # Init
-    # print("Init dist: " + str(sys.getsizeof(dist)))
     print("Init paths: " + str(sys.getsizeof(paths)))
 
     # Serial Floyd-Warshall
@@ -95,26 +76,22 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
                 if k == j or j == i:
                     continue
 
-                # possible_new_path = dist[i][k] + dist[k][j]
                 if (i, k) in paths and (k, j) in paths:
                     source_path_len = len(paths[(i, k)][0]) + 1
                     dest_path_len = len(paths[(k, j)][0]) + 1
 
                     possible_new_path = source_path_len + dest_path_len
 
-                    # if dist[i][j] > possible_new_path:
                     if (i, j) not in paths:
                         path_len = INITIAL_VALUE
                     else:
                         path_len = len(paths[(i, j)][0]) + 1
 
                     if path_len > possible_new_path:
-                        # dist[i][j] = possible_new_path
                         paths[(i, j)] = [
                             tuple(list(half1) + [k] + list(half2))
                             for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
                         ]
-                    # elif dist[i][j] == possible_new_path:
                     elif path_len == possible_new_path:
                         # check for duplicate paths
                         new_path = [
@@ -124,7 +101,6 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
 
                         paths[(i, j)] += new_path
 
-    # print("After Floyd dist: " + str(sys.getsizeof(dist)))
     print("After Floyd paths: " + str(sys.getsizeof(paths)))
 
     # Parallel betweenness centrality
