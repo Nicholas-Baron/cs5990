@@ -72,36 +72,24 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
             for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
         ]
 
-    # Serial Floyd-Warshall
-    for k in range(NODE_COUNT):
-        for i in range(NODE_COUNT):
-            if k == i:
-                continue
+    def update_paths(k: int, i: int, j: int):
+        if (i, k) in paths and (k, j) in paths:
+            source_path_len = len(paths[(i, k)][0]) + 1
+            dest_path_len = len(paths[(k, j)][0]) + 1
 
-            for j in range(NODE_COUNT):
-                if k == j or j == i:
-                    continue
+            possible_new_path = source_path_len + dest_path_len
 
-                if (i, k) in paths and (k, j) in paths:
-                    source_path_len = len(paths[(i, k)][0]) + 1
-                    dest_path_len = len(paths[(k, j)][0]) + 1
+            if (i, j) not in paths:
+                path_len = INITIAL_VALUE
+            else:
+                path_len = len(paths[(i, j)][0]) + 1
 
-                    possible_new_path = source_path_len + dest_path_len
+            if path_len > possible_new_path:
+                paths[(i, j)] = compute_paths(k, i, j)
+            elif path_len == possible_new_path:
+                # TODO: check for duplicate paths
+                paths[(i, j)] += compute_paths(k, i, j)
 
-                    if (i, j) not in paths:
-                        path_len = INITIAL_VALUE
-                    else:
-                        path_len = len(paths[(i, j)][0]) + 1
-
-                    if path_len > possible_new_path:
-                        paths[(i, j)] = compute_paths(k, i, j)
-                    elif path_len == possible_new_path:
-                        # TODO: check for duplicate paths
-                        paths[(i, j)] += compute_paths(k, i, j)
-
-    print("After Floyd paths: " + str(sys.getsizeof(paths)))
-
-    # Parallel betweenness centrality
     comm = MPI.COMM_WORLD
     num_proc = comm.Get_size()
     rank = comm.Get_rank()
@@ -109,6 +97,41 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     # Divvy nodes and remainders between processors
     num_nodes_per_proc = NODE_COUNT // num_proc
     remainder_nodes = NODE_COUNT % num_proc
+
+    def transmit_paths(off: int):
+        for proc in range(num_proc):
+            row = proc * num_nodes_per_proc + off
+
+            for j, path_set in comm.bcast(
+                {j: path_set for (i, j), path_set in paths.items() if i == row},
+                root=proc,
+            ).items():
+                paths[(i, j)] = path_set
+
+    # Serial Floyd-Warshall
+    for k in range(NODE_COUNT):
+        for off in range(num_nodes_per_proc):
+            i = rank * num_nodes_per_proc + off
+            if k == i:
+                continue
+
+            for j in range(NODE_COUNT):
+                if k == j or j == i:
+                    continue
+                update_paths(k, i, j)
+
+            transmit_paths(off)
+
+        for off in range(remainder_nodes):
+            i = (num_proc - 1) * num_nodes_per_proc + off
+            for j in range(NODE_COUNT):
+                if k == j or j == i:
+                    continue
+                update_paths(k, i, j)
+
+    print("After Floyd paths: " + str(sys.getsizeof(paths)))
+
+    # Parallel betweenness centrality
 
     centrality_results = {}
 
