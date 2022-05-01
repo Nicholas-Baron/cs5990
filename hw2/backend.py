@@ -78,7 +78,7 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
         # dist[v][u] = 1
         paths[(v, u)] = {tuple()}
 
-    for v in range(NODE_COUNT):
+    for v in g.nodes:
         # dist[v][v] = 0
         dist[(v, v)] = 0
 
