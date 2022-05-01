@@ -71,11 +71,11 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     for (u, v) in g.edges():
         # dist[(u, v)] = 1
         # dist[u][v] = 1
-        paths[(u, v)] = []
+        paths[(u, v)] = [tuple()]
         # undirected means (u,v) is also (v,u)
         # dist[(v, u)] = 1
         # dist[v][u] = 1
-        paths[(v, u)] = []
+        paths[(v, u)] = [tuple()]
 
     # for v in g.nodes:
     # dist[v][v] = 0
@@ -97,31 +97,32 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
 
                 # possible_new_path = dist[i][k] + dist[k][j]
                 if (i, k) in paths and (k, j) in paths:
-                    if paths[(i, k)] == []:
-                        source_path_len = 0
-                    else:
-                        source_path_len = len(paths[(i, k)])
-                    print(paths[(i, k)])
-                    print(paths[(k, j)])
-                    possible_new_path = (len(paths[(i, k)][0]) + 1) + (len(paths[(k, j)][0]) + 1)
+                    source_path_len = len(paths[(i, k)][0]) + 1
+                    dest_path_len = len(paths[(k, j)][0]) + 1
+
+                    possible_new_path = source_path_len + dest_path_len
 
                     # if dist[i][j] > possible_new_path:
-                    if (i, j) in paths:
-                        if len(paths[(i, j)][0]) > possible_new_path:
-                            # dist[i][j] = possible_new_path
-                            paths[(i, j)] = [
-                                tuple(list(half1) + [k] + list(half2))
-                                for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                            ]
-                        # elif dist[i][j] == possible_new_path:
-                        elif len(paths[(i, j)][0]) == possible_new_path:
-                            # check for duplicate paths
-                            new_path = [
-                                tuple(list(half1) + [k] + list(half2))
-                                for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                            ]
-                            if new_path not in paths[(i, j)]:
-                                paths[(i, j)] |= new_path
+                    if (i, j) not in paths:
+                        path_len = INITIAL_VALUE
+                    else:
+                        path_len = len(paths[(i, j)][0]) + 1
+
+                    if path_len > possible_new_path:
+                        # dist[i][j] = possible_new_path
+                        paths[(i, j)] = [
+                            tuple(list(half1) + [k] + list(half2))
+                            for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                        ]
+                    # elif dist[i][j] == possible_new_path:
+                    elif path_len == possible_new_path:
+                        # check for duplicate paths
+                        new_path = [
+                            tuple(list(half1) + [k] + list(half2))
+                            for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+                        ]
+
+                        paths[(i, j)] += new_path
 
     # print("After Floyd dist: " + str(sys.getsizeof(dist)))
     print("After Floyd paths: " + str(sys.getsizeof(paths)))
