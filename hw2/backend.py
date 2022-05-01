@@ -68,6 +68,7 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
 
     for v in range(NODE_COUNT):
         dist[v][v] = 0
+        paths[(v, v)] = set()
 
     comm = MPI.COMM_WORLD
     num_proc = comm.Get_size()
@@ -110,6 +111,9 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     for k in range(NODE_COUNT):
         for off in range(num_nodes_per_proc):
             i = rank * num_nodes_per_proc + off
+            if k == i:
+                continue
+
             for j in range(NODE_COUNT):
                 if k == j or j == i:
                     continue
