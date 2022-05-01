@@ -66,6 +66,12 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     # Init
     print("Init paths: " + str(sys.getsizeof(paths)))
 
+    def compute_paths(k: int, i: int, j: int) -> List[tuple[int, ...]]:
+        return [
+            tuple(list(half1) + [k] + list(half2))
+            for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
+        ]
+
     # Serial Floyd-Warshall
     for k in range(NODE_COUNT):
         for i in range(NODE_COUNT):
@@ -88,18 +94,10 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
                         path_len = len(paths[(i, j)][0]) + 1
 
                     if path_len > possible_new_path:
-                        paths[(i, j)] = [
-                            tuple(list(half1) + [k] + list(half2))
-                            for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                        ]
+                        paths[(i, j)] = compute_paths(k, i, j)
                     elif path_len == possible_new_path:
-                        # check for duplicate paths
-                        new_path = [
-                            tuple(list(half1) + [k] + list(half2))
-                            for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                        ]
-
-                        paths[(i, j)] += new_path
+                        # TODO: check for duplicate paths
+                        paths[(i, j)] += compute_paths(k, i, j)
 
     print("After Floyd paths: " + str(sys.getsizeof(paths)))
 
