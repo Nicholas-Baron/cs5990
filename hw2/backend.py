@@ -3,7 +3,6 @@
 import sys
 
 from networkx import Graph
-from networkx.algorithms.centrality.betweenness import betweenness_centrality
 
 import gzip
 from itertools import product
@@ -50,7 +49,7 @@ def load_graph(filename: str) -> Graph:
     return g
 
 
-def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
+def betweenness_centrality(g: Graph) -> Dict[int, float]:
     # Initalization
     # INITIAL_VALUE was chosen by finding the largest diameter of our datasets and rounding up
     INITIAL_VALUE = 10
@@ -175,11 +174,6 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
         centrality_results[node] = calculate_centrality(node)
 
     return centrality_results
-
-
-def serial_betweenness_centrality(g: Graph) -> Dict[int, float]:
-    # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.centrality.betweenness_centrality.html
-    return betweenness_centrality(g, normalized=False)
 
 
 def print_centrality_data(filename: str, data: Dict[int, float]):
