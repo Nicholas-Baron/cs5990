@@ -38,4 +38,5 @@ echo "Running $input_filename on $num_jobs jobs"
 mpirun -n $num_jobs python ${input_filename}
 EOF
 
+sleep 1
 squeue
