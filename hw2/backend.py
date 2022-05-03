@@ -6,12 +6,16 @@ from networkx import Graph
 from networkx.algorithms.centrality.betweenness import betweenness_centrality
 
 import gzip
-from itertools import product
+from itertools import product, count
 from mpi4py import MPI
 from pprint import pprint
 from statistics import mean
 from time import time_ns
+from tqdm import tqdm
 from typing import Dict, List
+from heapq import heappush, heappop
+
+
 
 start = time_ns()
 
@@ -177,9 +181,67 @@ def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
     return centrality_results
 
 
-def serial_betweenness_centrality(g: Graph) -> Dict[int, float]:
-    # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.centrality.betweenness_centrality.html
-    return betweenness_centrality(g, normalized=False)
+def serial_betweenness_centrality(g: Graph):
+    betweenness = Dict.fromkeys(g, 0.0)
+    nodes = g
+    for s in tqdm(nodes, desc="Outer"):
+        # single source shortest paths
+        # use Dijkstra's algorithm
+        S, P, sigma = dijkstra(g, s)
+
+        betweenness, _ = sum_between(betweenness, S, P, sigma, s)
+
+    # betweenness = _rescale(betweenness, len(G), normalized=normalized,
+    #                        directed=G.is_directed(), k=k)
+    return betweenness
+
+
+def dijkstra(g, s):
+    weight = 1
+    S = []
+    P = {}
+    for v in g:
+        P[v] = []
+    sigma = dict.fromkeys(g, 0.0)
+    D = {}
+    sigma[s] = 1.0
+    push = heappush
+    pop = heappop
+    seen = {s: 0}
+    c = count()
+    Q = []  # use Q as heap with (distance,node id) tuples
+    push(Q, (0, next(c), s, s))
+    while Q:
+        (dist, _, pred, v) = pop(Q)
+        if v in D:
+            continue  # already searched this node.
+        sigma[v] += sigma[pred]  # count paths
+        S.append(v)
+        D[v] = dist
+        for w, edgedata in g[v].items():
+            vw_dist = dist + 1
+            if w not in D and (w not in seen or vw_dist < seen[w]):
+                seen[w] = vw_dist
+                push(Q, (vw_dist, next(c), v, w))
+                sigma[w] = 0.0
+                P[w] = [v]
+            elif vw_dist == seen[w]:  # handle equal paths
+                sigma[w] += sigma[v]
+                P[w].append(v)
+    return S, P, sigma
+
+
+
+def sum_between(betweenness, S, P, sigma, s):
+    delta = dict.fromkeys(S, 0)
+    while S:
+        w = S.pop()
+        coeff = (1 + delta[w]) / sigma[w]
+        for v in P[w]:
+            delta[v] += sigma[v] * coeff
+        if w != s:
+            betweenness[w] = delta[w] + betweenness[w]
+    return betweenness, delta
 
 
 def print_centrality_data(filename: str, data: Dict[int, float]):
@@ -190,8 +252,8 @@ def print_centrality_data(filename: str, data: Dict[int, float]):
     # print five nodes with the top centrality values
     print("Top 5 nodes by centrality")
     for (node, centrality) in sorted(data.items(), reverse=True, key=lambda x: x[1])[
-        :5
-    ]:
+                              :5
+                              ]:
         print(f"{node:5} {centrality:5.5}")
 
     # print the average of the centrality values of all nodes
