@@ -105,6 +105,8 @@ def betweenness_centrality(g: Graph) -> Dict[int, float]:
     comm = MPI.COMM_WORLD
     num_proc = comm.Get_size()
     rank = comm.Get_rank()
+    if rank == 0:
+        print("Running on", num_proc, "processors")
 
     # Divvy nodes and remainders between processors
     num_nodes_per_proc = g.number_of_nodes() // num_proc
@@ -152,6 +154,10 @@ def betweenness_centrality(g: Graph) -> Dict[int, float]:
 
 
 def print_centrality_data(filename: str, data: Dict[int, float]):
+    # Only do this on rank 0 process 
+    if rank != 0:
+        return
+
     # Print out to a local file the centrality measures for all the vertices.
     with open(filename, "w") as output:
         pprint(data, stream=output)
