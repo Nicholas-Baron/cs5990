@@ -101,6 +101,8 @@ def betweenness_centrality(g: Graph) -> Dict[int, float]:
         for dest, path_set in bfs(g, src).items()
     }
 
+    print_timing("BFS")
+
     # Parallel betweenness centrality
     comm = MPI.COMM_WORLD
     num_proc = comm.Get_size()
@@ -111,8 +113,6 @@ def betweenness_centrality(g: Graph) -> Dict[int, float]:
     # Divvy nodes and remainders between processors
     num_nodes_per_proc = g.number_of_nodes() // num_proc
     remainder_nodes = g.number_of_nodes() % num_proc
-
-    centrality_results = {}
 
     def calculate_centrality(node: int) -> float:
         centrality = 0.0
@@ -135,9 +135,12 @@ def betweenness_centrality(g: Graph) -> Dict[int, float]:
                 centrality += paths_thru_node / len(all_paths)
         return centrality
 
+    centrality_results = {}
     for off in range(num_nodes_per_proc):
         node = rank * num_nodes_per_proc + off
         centrality_results[node] = calculate_centrality(node)
+
+    print_timing("betweenness parallel")
 
     centrality_results = {
         node: centrality
@@ -145,17 +148,21 @@ def betweenness_centrality(g: Graph) -> Dict[int, float]:
         for (node, centrality) in proc_result.items()
     }
 
+    print_timing("betweenness collection")
+
     # compute remaining nodes
     for off in range(remainder_nodes):
         node = (num_proc - 1) * num_nodes_per_proc + off
         centrality_results[node] = calculate_centrality(node)
 
+    print_timing("betweenness remainder")
+
     return centrality_results
 
 
 def print_centrality_data(filename: str, data: Dict[int, float]):
-    # Only do this on rank 0 process 
-    if rank != 0:
+    # Only do this on rank 0 process
+    if MPI.COMM_WORLD.Get_rank() != 0:
         return
 
     # Print out to a local file the centrality measures for all the vertices.
