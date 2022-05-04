@@ -15,8 +15,6 @@ from tqdm import tqdm
 from typing import Dict, List
 from heapq import heappush, heappop
 
-
-
 start = time_ns()
 
 
@@ -54,194 +52,70 @@ def load_graph(filename: str) -> Graph:
     return g
 
 
-def parallel_betweenness_centrality(g: Graph) -> Dict[int, float]:
-    # Initalization
-    # INITIAL_VALUE was chosen by finding the largest diameter of our datasets and rounding up
-    INITIAL_VALUE = 10
-    NODE_COUNT = g.number_of_nodes()
-
-    # key: u,v pair; value: int distance
-    # dist: Dict[Tuple[int, int], int] = {}
-
-    # I think pythonic 1 liner may be faster...
-    # for u in g.nodes:
-    #     for v in g.nodes:
-    #         dist[(u, v)] = INITIAL_VALUE
-
-    # dist = [[INITIAL_VALUE for _ in range(NODE_COUNT)] for _ in range(NODE_COUNT)]
-
-    paths: Dict[tuple[int, int], List[tuple[int, ...]]] = {}
-
-    for (u, v) in g.edges():
-        # dist[(u, v)] = 1
-        # dist[u][v] = 1
-        paths[(u, v)] = [tuple()]
-        # undirected means (u,v) is also (v,u)
-        # dist[(v, u)] = 1
-        # dist[v][u] = 1
-        paths[(v, u)] = [tuple()]
-
-    # for v in g.nodes:
-    # dist[v][v] = 0
-    # dist[(v, v)] = 0
-
-    # Init
-    # print("Init dist: " + str(sys.getsizeof(dist)))
-    print("Init paths: " + str(sys.getsizeof(paths)))
-
-    # Serial Floyd-Warshall
-    for k in range(NODE_COUNT):
-        for i in range(NODE_COUNT):
-            if k == i:
-                continue
-
-            for j in range(NODE_COUNT):
-                if k == j or j == i:
-                    continue
-
-                # possible_new_path = dist[i][k] + dist[k][j]
-                if (i, k) in paths and (k, j) in paths:
-                    source_path_len = len(paths[(i, k)][0]) + 1
-                    dest_path_len = len(paths[(k, j)][0]) + 1
-
-                    possible_new_path = source_path_len + dest_path_len
-
-                    # if dist[i][j] > possible_new_path:
-                    if (i, j) not in paths:
-                        path_len = INITIAL_VALUE
-                    else:
-                        path_len = len(paths[(i, j)][0]) + 1
-
-                    if path_len > possible_new_path:
-                        # dist[i][j] = possible_new_path
-                        paths[(i, j)] = [
-                            tuple(list(half1) + [k] + list(half2))
-                            for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                        ]
-                    # elif dist[i][j] == possible_new_path:
-                    elif path_len == possible_new_path:
-                        # check for duplicate paths
-                        new_path = [
-                            tuple(list(half1) + [k] + list(half2))
-                            for (half1, half2) in product(paths[(i, k)], paths[(k, j)])
-                        ]
-
-                        paths[(i, j)] += new_path
-
-    # print("After Floyd dist: " + str(sys.getsizeof(dist)))
-    print("After Floyd paths: " + str(sys.getsizeof(paths)))
-
-    # Parallel betweenness centrality
-    comm = MPI.COMM_WORLD
-    num_proc = comm.Get_size()
-    rank = comm.Get_rank()
-
-    # Divvy nodes and remainders between processors
-    num_nodes_per_proc = NODE_COUNT // num_proc
-    remainder_nodes = NODE_COUNT % num_proc
-
-    centrality_results = {}
-
-    def calculate_centrality(node: int) -> float:
-        centrality = 0.0
-        for src in g.nodes():
-            if node == src:
-                continue
-
-            for dest in g.nodes():
-                if dest == src or node == dest:
-                    continue
-
-                all_paths = paths.get((src, dest))
-                if all_paths is None:
-                    continue
-
-                paths_thru_node = sum(
-                    1 for path in all_paths for stop in path if stop == node
-                )
-
-                centrality += paths_thru_node / len(all_paths)
-        return centrality
-
-    for off in range(num_nodes_per_proc):
-        node = rank * num_nodes_per_proc + off
-        centrality_results[node] = calculate_centrality(node)
-
-    centrality_results = {
-        node: centrality
-        for proc_result in comm.allgather(centrality_results)
-        for (node, centrality) in proc_result.items()
-    }
-
-    # compute remaining nodes
-    for off in range(remainder_nodes):
-        node = (num_proc - 1) * num_nodes_per_proc + off
-        centrality_results[node] = calculate_centrality(node)
-
-    return centrality_results
-
-
-def serial_betweenness_centrality(g: Graph):
+def parallel_betweenness_centrality(g: Graph):
     betweenness = Dict.fromkeys(g, 0.0)
     nodes = g
+
+    # for parallelism, just divide the source nodes and deal with remainders.
     for s in tqdm(nodes, desc="Outer"):
         # single source shortest paths
-        # use Dijkstra's algorithm
-        S, P, sigma = dijkstra(g, s)
+        # unweighted, so just use BFS
+        S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma = get_paths_sigma(g, s)
 
-        betweenness, _ = sum_between(betweenness, S, P, sigma, s)
+        betweenness = summate_betweenness(betweenness, S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma, s)
 
-    # betweenness = _rescale(betweenness, len(G), normalized=normalized,
-    #                        directed=G.is_directed(), k=k)
+        # divide by 2 because undirected graph is expected
+        for v in betweenness:
+            betweenness[v] *= 0.5
     return betweenness
 
 
-def dijkstra(g, s):
-    weight = 1
-    S = []
-    P = {}
+def get_paths_sigma(g, s):
+    S_nodes_connected_to_s = []
+    P_path_nodes_of_all_s_to_S = {}  # (partial?)Path dict of all nodes
     for v in g:
-        P[v] = []
+        P_path_nodes_of_all_s_to_S[v] = []
+    # sigma = A betweenness 'slice' dict containing every node as key and every value as
+    #         the respective count of paths calculated during this function.
     sigma = dict.fromkeys(g, 0.0)
-    D = {}
-    sigma[s] = 1.0
-    push = heappush
-    pop = heappop
-    seen = {s: 0}
-    c = count()
-    Q = []  # use Q as heap with (distance,node id) tuples
-    push(Q, (0, next(c), s, s))
-    while Q:
-        (dist, _, pred, v) = pop(Q)
-        if v in D:
+    distance_dict_from_s_to_all = {}
+    sigma[s] = 1.0  # <- betweenness to self is 1
+    seen = {s: 0}  # <- This is the seen dictionary
+    distance_heap = []  # heap as tuple(distance, node)
+    heappush(distance_heap, (0, s, s))  # Push onto heap (init_dist (0), init node in count c,
+    #                                                          source as pred, and source as dest v)
+    while distance_heap:  # While the distance heap is not empty,
+        (dist, pred, v) = heappop(distance_heap)
+        if v in distance_dict_from_s_to_all:
             continue  # already searched this node.
-        sigma[v] += sigma[pred]  # count paths
-        S.append(v)
-        D[v] = dist
-        for w, edgedata in g[v].items():
-            vw_dist = dist + 1
-            if w not in D and (w not in seen or vw_dist < seen[w]):
+        sigma[v] += sigma[pred]  # count predecessor paths (counts edge as to and from?)
+        S_nodes_connected_to_s.append(v)
+        distance_dict_from_s_to_all[v] = dist
+        for w, edgedata in g[v].items():  # For each node connected to v,
+            vw_dist = dist + 1  # update dist_dict accordingly (+1 per connecting edge)
+            if w not in distance_dict_from_s_to_all and (
+                    w not in seen or vw_dist < seen[w]):  # if w not in dist_d & path is shorter,
                 seen[w] = vw_dist
-                push(Q, (vw_dist, next(c), v, w))
-                sigma[w] = 0.0
-                P[w] = [v]
-            elif vw_dist == seen[w]:  # handle equal paths
+                heappush(distance_heap, (vw_dist, v, w))  # Add next connection to investigate
+                sigma[w] = 0.0  # Instantiate sigma for next connection v
+                P_path_nodes_of_all_s_to_S[w] = [v]  # add to path dictionary?
+            elif vw_dist == seen[w]:  # else if new path as short as old path,
                 sigma[w] += sigma[v]
-                P[w].append(v)
-    return S, P, sigma
+                P_path_nodes_of_all_s_to_S[w].append(v)
+            #  else: its just a useless meandering path, skip it
+    return S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma
 
 
-
-def sum_between(betweenness, S, P, sigma, s):
+def summate_betweenness(betweenness, S, P, sigma, s):
     delta = dict.fromkeys(S, 0)
     while S:
         w = S.pop()
         coeff = (1 + delta[w]) / sigma[w]
-        for v in P[w]:
+        for v in P[w]:  # Sum paths that include v, weighted by coeff
             delta[v] += sigma[v] * coeff
-        if w != s:
+        if w != s:  # Add the partial betweenness-es together
             betweenness[w] = delta[w] + betweenness[w]
-    return betweenness, delta
+    return betweenness
 
 
 def print_centrality_data(filename: str, data: Dict[int, float]):
