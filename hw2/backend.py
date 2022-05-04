@@ -81,6 +81,12 @@ def parallel_betweenness_centrality(g: Graph):
             # divide by 2 because undirected graph is expected
             for v in betweenness:
                 betweenness[v] *= 0.5
+            #
+        for proc in range(num_proc):
+            comm.allgather(betweenness)
+
+
+
     return betweenness
 
 
