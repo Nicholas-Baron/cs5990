@@ -7,6 +7,7 @@ from networkx.algorithms.centrality.betweenness import betweenness_centrality
 
 import gzip
 from itertools import product, count
+from math import ceil
 from mpi4py import MPI
 from pprint import pprint
 from statistics import mean
@@ -55,18 +56,31 @@ def load_graph(filename: str) -> Graph:
 def parallel_betweenness_centrality(g: Graph):
     betweenness = Dict.fromkeys(g, 0.0)
     nodes = g
-
+    NODE_COUNT = len(nodes)
     # for parallelism, just divide the source nodes and deal with remainders.
-    for s in tqdm(nodes, desc="Outer"):
+
+    comm = MPI.COMM_WORLD
+    num_proc = comm.Get_size()
+    rank = comm.Get_rank()
+
+    num_nodes_per_proc = ceil(NODE_COUNT / num_proc)
+    num_nodes_per_last_proc = NODE_COUNT - (num_nodes_per_proc * (num_proc-1))
+
+    # for s in tqdm(nodes, desc="Outer"):
+    nodes = list(g)
+    for off in range(num_nodes_per_proc):
         # single source shortest paths
         # unweighted, so just use BFS
-        S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma = get_paths_sigma(g, s)
+        s = num_nodes_per_proc * rank + off
 
-        betweenness = summate_betweenness(betweenness, S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma, s)
+        if s in nodes:
+            S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma = get_paths_sigma(g, nodes[s])
 
-        # divide by 2 because undirected graph is expected
-        for v in betweenness:
-            betweenness[v] *= 0.5
+            betweenness = summate_betweenness(betweenness, S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma, nodes[s])
+
+            # divide by 2 because undirected graph is expected
+            for v in betweenness:
+                betweenness[v] *= 0.5
     return betweenness
 
 
