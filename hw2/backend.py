@@ -12,7 +12,6 @@ from mpi4py import MPI
 from pprint import pprint
 from statistics import mean
 from time import time_ns
-from tqdm import tqdm
 from typing import Dict, List
 from heapq import heappush, heappop
 
@@ -66,7 +65,6 @@ def parallel_betweenness_centrality(g: Graph):
     num_nodes_per_proc = ceil(NODE_COUNT / num_proc)
     num_nodes_per_last_proc = NODE_COUNT - (num_nodes_per_proc * (num_proc - 1))
 
-    # for s in tqdm(nodes, desc="Outer"):
     nodes = list(g)
     for off in range(num_nodes_per_proc):
         # single source shortest paths
