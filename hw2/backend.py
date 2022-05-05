@@ -64,7 +64,7 @@ def parallel_betweenness_centrality(g: Graph):
     rank = comm.Get_rank()
 
     num_nodes_per_proc = ceil(NODE_COUNT / num_proc)
-    num_nodes_per_last_proc = NODE_COUNT - (num_nodes_per_proc * (num_proc-1))
+    num_nodes_per_last_proc = NODE_COUNT - (num_nodes_per_proc * (num_proc - 1))
 
     # for s in tqdm(nodes, desc="Outer"):
     nodes = list(g)
@@ -74,9 +74,17 @@ def parallel_betweenness_centrality(g: Graph):
         s = num_nodes_per_proc * rank + off
 
         if s in nodes:
-            S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma = get_paths_sigma(g, nodes[s])
+            S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma = get_paths_sigma(
+                g, nodes[s]
+            )
 
-            betweenness = summate_betweenness(betweenness, S_nodes_connected_to_s, P_path_nodes_of_all_s_to_S, sigma, nodes[s])
+            betweenness = summate_betweenness(
+                betweenness,
+                S_nodes_connected_to_s,
+                P_path_nodes_of_all_s_to_S,
+                sigma,
+                nodes[s],
+            )
 
             # divide by 2 because undirected graph is expected
             for v in betweenness:
@@ -84,8 +92,6 @@ def parallel_betweenness_centrality(g: Graph):
             #
         for proc in range(num_proc):
             comm.allgather(betweenness)
-
-
 
     return betweenness
 
@@ -102,7 +108,9 @@ def get_paths_sigma(g, s):
     sigma[s] = 1.0  # <- betweenness to self is 1
     seen = {s: 0}  # <- This is the seen dictionary
     distance_heap = []  # heap as tuple(distance, node)
-    heappush(distance_heap, (0, s, s))  # Push onto heap (init_dist (0), init node in count c,
+    heappush(
+        distance_heap, (0, s, s)
+    )  # Push onto heap (init_dist (0), init node in count c,
     #                                                          source as pred, and source as dest v)
     while distance_heap:  # While the distance heap is not empty,
         (dist, pred, v) = heappop(distance_heap)
@@ -114,9 +122,12 @@ def get_paths_sigma(g, s):
         for w, edgedata in g[v].items():  # For each node connected to v,
             vw_dist = dist + 1  # update dist_dict accordingly (+1 per connecting edge)
             if w not in distance_dict_from_s_to_all and (
-                    w not in seen or vw_dist < seen[w]):  # if w not in dist_d & path is shorter,
+                w not in seen or vw_dist < seen[w]
+            ):  # if w not in dist_d & path is shorter,
                 seen[w] = vw_dist
-                heappush(distance_heap, (vw_dist, v, w))  # Add next connection to investigate
+                heappush(
+                    distance_heap, (vw_dist, v, w)
+                )  # Add next connection to investigate
                 sigma[w] = 0.0  # Instantiate sigma for next connection v
                 P_path_nodes_of_all_s_to_S[w] = [v]  # add to path dictionary?
             elif vw_dist == seen[w]:  # else if new path as short as old path,
@@ -146,8 +157,8 @@ def print_centrality_data(filename: str, data: Dict[int, float]):
     # print five nodes with the top centrality values
     print("Top 5 nodes by centrality")
     for (node, centrality) in sorted(data.items(), reverse=True, key=lambda x: x[1])[
-                              :5
-                              ]:
+        :5
+    ]:
         print(f"{node:5} {centrality:5.5}")
 
     # print the average of the centrality values of all nodes
