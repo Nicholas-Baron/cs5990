@@ -35,6 +35,7 @@ def plot(filename: str, x_axis: str, data: Mapping[int, Union[int, float]]):
     pyplot.title(filename)
     pyplot.ylabel(x_axis)
     pyplot.xlabel("Number of MPI processes")
+    pyplot.xticks(ticks=list(data.keys()))
     pyplot.savefig(filename, bbox_inches="tight")
 
 
