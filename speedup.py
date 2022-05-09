@@ -25,6 +25,12 @@ def calc_speedup(times: Mapping[int, Union[int, float]]) -> Dict[int, float]:
     return {procs: serial_time / time for procs, time in times.items()}
 
 
+def calc_cost(
+    times: Mapping[int, Union[int, float]]
+) -> Mapping[int, Union[int, float]]:
+    return {procs: time * procs for procs, time in times.items()}
+
+
 def plot(filename: str, x_axis: str, data: Mapping[int, Union[int, float]]):
     # Clear the previous run
     pyplot.clf()
@@ -43,3 +49,5 @@ plot("Facebook Time", "Time in seconds", facebook)
 plot("Twitter Time", "Time in seconds", twitter)
 plot("Facebook Speedup", "Speedup relative to serial", calc_speedup(facebook))
 plot("Twitter Speedup", "Speedup relative to serial", calc_speedup(twitter))
+plot("Facebook Cost", "Cost in seconds", calc_cost(facebook))
+plot("Twitter Cost", "Cost in seconds", calc_cost(twitter))
